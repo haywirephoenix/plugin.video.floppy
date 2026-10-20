@@ -104,12 +104,9 @@ class FloppyAPI:
         return self.get("media/{}".format(media_type), params, ttl)
 
     def playback_progress(self, media_types, completed=False, limit=50, offset=0, ttl=0):
-        params = {
-            "media_type": ",".join(media_types),
-            "completed": "true" if completed else "false",
-            "limit": limit,
-            "offset": offset,
-        }
+        params = {"media_type": ",".join(media_types), "limit": limit, "offset": offset}
+        if completed is not None:
+            params["completed"] = "true" if completed else "false"
         return self.get("playback/progress", params, ttl)
 
     def put_progress(self, body):

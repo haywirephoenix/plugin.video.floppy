@@ -189,18 +189,32 @@ def all_in_progress(next_up=False):
 
     def fetch(api, page, size):
         ttl = _list_ttl()
+        last = {}
 
-        # Most recent play per title, from Floppy's history (newest first).
-        last_play = {}
+        def bump(key, value):
+            ts = _ts(value)
+            if ts > last.get(key, 0):
+                last[key] = ts
+
+        # Finished plays (history), newest first.
         try:
             history = api.history(["movie", "tv", "anime"], limit=200, ttl=ttl)
             for row in (history or {}).get("results") or []:
                 item = row.get("item") or {}
                 kind = "movie" if row.get("media_type") == "movie" else "tv"
-                key = (kind, item.get("source"), str(item.get("media_id")))
-                last_play.setdefault(key, _ts(row.get("played_at_local") or row.get("end_date")))
+                bump((kind, item.get("source"), str(item.get("media_id"))),
+                     row.get("played_at_local") or row.get("end_date"))
         except FloppyError as exc:
             common.log("History unavailable for ordering: {}".format(exc))
+
+        # Part-watched and just-finished positions saved while watching in Kodi.
+        try:
+            progress = api.playback_progress(["movie", "episode"], completed=None, limit=200, ttl=ttl)
+            for row in (progress or {}).get("results") or []:
+                kind = "movie" if row.get("media_type") == "movie" else "tv"
+                bump((kind, row.get("source"), str(row.get("media_id"))), row.get("updated_at"))
+        except FloppyError as exc:
+            common.log("Resume positions unavailable for ordering: {}".format(exc))
 
         pool = []
         for media_type, params in sources:
@@ -212,7 +226,6 @@ def all_in_progress(next_up=False):
                 continue
             for row in (payload or {}).get("results") or []:
                 item = row.get("item") or {}
-                # Seasons and episodes come from TMDb routes, so series need a TMDb source.
                 if media_type != "movie" and item.get("source") != "tmdb":
                     continue
                 entry = model.from_media(row, next_up=next_up and media_type != "movie")
@@ -220,13 +233,15 @@ def all_in_progress(next_up=False):
                     continue
                 kind = "movie" if media_type == "movie" else "tv"
                 key = (kind, item.get("source"), str(item.get("media_id")))
-                entry["_last"] = last_play.get(key) or max(
-                    _ts(row.get(f)) for f in ("end_date", "progressed_at", "start_date", "created_at"))
+                # Newest real activity wins. created_at/progressed_at are left out:
+                # imports stamp them with the import date.
+                entry["_last"] = max(last.get(key, 0), _ts(row.get("end_date")),
+                                     _ts(row.get("start_date")))
                 pool.append(entry)
 
         pool.sort(key=lambda e: e.get("_last") or 0, reverse=True)
         return _slice(model.dedupe(pool), page, size)
-
+    
     return fetch
 
 # -- the menu -----------------------------------------------------------------------
