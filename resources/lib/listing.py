@@ -156,6 +156,7 @@ def context_menu(entry, in_resume_list=False):
     ):
         items.append(("Floppy: Remove from Floppy", "RunPlugin({})".format(common.plugin_url(
             action="remove_from_floppy",
+            lmt=entry.get("lmt"),
             media_type="movie" if kind == "movie" else "tv",
             source=entry.get("source") or "tmdb",
             media_id=entry.get("media_id"),

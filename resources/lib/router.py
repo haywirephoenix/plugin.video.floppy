@@ -79,24 +79,35 @@ class Router:
 
     def root(self):
         menu = [
-            ("Search", common.plugin_url(action="search"), "DefaultAddonsSearch.png",
-             "Search movies and TV shows through Floppy."),
             ("Continue Watching", common.plugin_url(action="list", cat="continue_watching"),
              "DefaultInProgressShows.png", "Movies and episodes you stopped part-way through."),
             ("Next Up", common.plugin_url(action="list", cat="tv_next_up"),
              "DefaultRecentlyAddedEpisodes.png", "The next episode of every show you are watching."),
-            ("Movies", common.plugin_url(action="menu", menu="movies"), "DefaultMovies.png", ""),
-            ("TV Shows", common.plugin_url(action="menu", menu="tv"), "DefaultTVShows.png", ""),
-            ("My Lists", common.plugin_url(action="lists"), "DefaultPlaylist.png",
-             "Your Floppy lists."),
-            ("Discover", common.plugin_url(action="discover"), "DefaultAddonVideo.png",
-             "Recommendations powered by global trends and your local activity."),
-             ("Floppy Home Rows", common.plugin_url(action="home_rows"), "DefaultAddonVideo.png",
-             "The rows from your Floppy home page."),
-            ("Tools", common.plugin_url(action="menu", menu="tools"), "DefaultAddonProgram.png", ""),
+            ("All Videos", common.plugin_url(action="menu", menu="all"),
+             "DefaultVideo.png", "Films, series and anime together."),
+            ("Movies", common.plugin_url(action="menu", menu="movies"),
+             "DefaultMovies.png", ""),
+            ("TV Shows", common.plugin_url(action="menu", menu="tv"),
+             "DefaultTVShows.png", ""),
+            ("Discover", common.plugin_url(action="discover"),
+             "DefaultAddonVideo.png", "Recommendations powered by global trends and your local activity."),
+            ("Search", common.plugin_url(action="search"),
+             "DefaultAddonsSearch.png", "Search movies and TV shows through Floppy."),
+            ("My Lists", common.plugin_url(action="lists"),
+             "DefaultPlaylist.png", "Your Floppy lists."),
+            ("Floppy Home Rows", common.plugin_url(action="home_rows"),
+             "DefaultAddonVideo.png", "The rows from your Floppy home page."),
+            ("Tools", common.plugin_url(action="menu", menu="tools"),
+             "DefaultAddonProgram.png", ""),
         ]
-        self._finish([listing.folder_item(label, url, icon, plot) for label, url, icon, plot in menu],
-                     content="files")
+        items = []
+        for entry in menu:
+            if len(entry) != 4:
+                common.log("Bad root menu entry: {!r}".format(entry), xbmc.LOGWARNING)
+                continue
+            label, url, icon, plot = entry
+            items.append(listing.folder_item(label, url, icon, plot))
+        self._finish(items, content="files")
 
     def menu(self):
         name = self.params.get("menu")
@@ -117,8 +128,12 @@ class Router:
             items = [(url, li, False) for url, li, _ in items]
             self._finish(items, content="files")
             return
-        keys = categories.MOVIE_MENU if name == "movies" else categories.TV_MENU
-        icon = "DefaultMovies.png" if name == "movies" else "DefaultTVShows.png"
+        if name == "all":
+            keys, icon = categories.ALL_MENU, "DefaultVideo.png"
+        elif name == "movies":
+            keys, icon = categories.MOVIE_MENU, "DefaultMovies.png"
+        else:
+            keys, icon = categories.TV_MENU, "DefaultTVShows.png"
         items = []
         for key in keys:
             label, _, _, description, _ = categories.CATEGORIES[key]
@@ -600,7 +615,8 @@ class Router:
         ):
             return
         try:
-            self.api.untrack(p.get("media_type"), p.get("source") or "tmdb", p.get("media_id"))
+            self.api.untrack(p.get("media_type"), p.get("source") or "tmdb", p.get("media_id"),
+                    lmt=p.get("lmt") or None)
         except FloppyError as exc:
             if exc.status == 404:
                 common.notify("{} is not in your Floppy library".format(title))
@@ -642,7 +658,7 @@ class Router:
         lines = ["Add any of these as a widget source. To refresh automatically, add",
                  "&reload=$INFO[Window(Home).Property({})]".format(common.PROP_RELOAD),
                  "to the end of the path.", ""]
-        sections = (("Mixed", ["continue_watching"]), ("Movies", categories.MOVIE_MENU),
+        sections = (("All Videos", categories.ALL_MENU), ("Mixed", ["continue_watching"]), ("Movies", categories.MOVIE_MENU),
                     ("TV", categories.TV_MENU))
         for title, keys in sections:
             lines.append("[B]{}[/B]".format(title))

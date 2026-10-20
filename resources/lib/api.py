@@ -156,8 +156,9 @@ class FloppyAPI:
         body = {"media_id": str(media_id), "source": source, "status": 0}
         return self.request("POST", "media/{}".format(media_type), body=body)
 
-    def untrack(self, media_type, source, media_id):
-        return self.request("DELETE", "media/{}/{}/{}".format(media_type, source, media_id))
+    def untrack(self, media_type, source, media_id, lmt=None):
+        return self.request("DELETE", "media/{}/{}/{}".format(media_type, source, media_id),
+                            params={"library_media_type": lmt})
     
     def show_detail(self, tmdb_id, lmt=None, ttl=0):
         return self.get("media/tv/tmdb/{}".format(tmdb_id), {"library_media_type": lmt}, ttl)

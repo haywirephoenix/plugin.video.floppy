@@ -3,9 +3,10 @@
 Each category's fetch(api, page, size) returns (entries, has_more).
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from . import common, model
+from .api import FloppyError
 
 MOVIE, TV, MIXED = "movies", "tvshows", "videos"
 
@@ -162,6 +163,71 @@ def merged(*fetchers):
         return _slice(model.dedupe(pool), page, size)
     return fetch
 
+def _ts(value):
+    """ISO date/datetime string -> UTC timestamp (0 when missing)."""
+    if not value or not isinstance(value, str):
+        return 0.0
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = datetime.fromisoformat(value[:10])
+        except ValueError:
+            return 0.0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def all_in_progress(next_up=False):
+    """Films, series and anime in progress, ordered by your most recent play."""
+    sources = (
+        ("movie", {"status": model.STATUS_IN_PROGRESS}),
+        ("tv", {"status": model.STATUS_IN_PROGRESS, "progress": "not_caught_up"}),
+        ("anime", {"status": model.STATUS_IN_PROGRESS, "progress": "not_caught_up"}),
+    )
+
+    def fetch(api, page, size):
+        ttl = _list_ttl()
+
+        # Most recent play per title, from Floppy's history (newest first).
+        last_play = {}
+        try:
+            history = api.history(["movie", "tv", "anime"], limit=200, ttl=ttl)
+            for row in (history or {}).get("results") or []:
+                item = row.get("item") or {}
+                kind = "movie" if row.get("media_type") == "movie" else "tv"
+                key = (kind, item.get("source"), str(item.get("media_id")))
+                last_play.setdefault(key, _ts(row.get("played_at_local") or row.get("end_date")))
+        except FloppyError as exc:
+            common.log("History unavailable for ordering: {}".format(exc))
+
+        pool = []
+        for media_type, params in sources:
+            try:
+                payload = api.media(media_type, ttl=ttl, limit=200, sort="end_date",
+                                    direction="desc", **params)
+            except FloppyError as exc:
+                common.log("Could not read {} in progress: {}".format(media_type, exc))
+                continue
+            for row in (payload or {}).get("results") or []:
+                item = row.get("item") or {}
+                # Seasons and episodes come from TMDb routes, so series need a TMDb source.
+                if media_type != "movie" and item.get("source") != "tmdb":
+                    continue
+                entry = model.from_media(row, next_up=next_up and media_type != "movie")
+                if not entry or not model.playable(entry):
+                    continue
+                kind = "movie" if media_type == "movie" else "tv"
+                key = (kind, item.get("source"), str(item.get("media_id")))
+                entry["_last"] = last_play.get(key) or max(
+                    _ts(row.get(f)) for f in ("end_date", "progressed_at", "start_date", "created_at"))
+                pool.append(entry)
+
+        pool.sort(key=lambda e: e.get("_last") or 0, reverse=True)
+        return _slice(model.dedupe(pool), page, size)
+
+    return fetch
 
 # -- the menu -----------------------------------------------------------------------
 # key: (label, content, fetch, description, in_resume_list)
@@ -173,7 +239,12 @@ CATEGORIES = {
     # Mixed
     "continue_watching": ("Continue Watching", MIXED, merged(_RESUME_MOVIES, _RESUME_EPISODES),
                           "Movies and episodes you stopped part-way through.", True),
-
+    # All videos (films, series, anime)
+    "all_in_progress": ("In Progress", MIXED, all_in_progress(),
+                        "Films, series and anime you're part-way through, last watched first.", False),
+    "all_next_up": ("Next Up", MIXED, all_in_progress(next_up=True),
+                    "The next episode of every series and anime, plus films in progress, "
+                    "last watched first.", False),
     # Movies
     "movies_continue": ("Continue Watching", MOVIE, _RESUME_MOVIES,
                         "Movies you stopped part-way through.", True),
@@ -285,3 +356,5 @@ TV_MENU = [
     "tv_watchlist", "tv_history", "tv_completed", "tv_rated", "tv_recently_added",
     "tv_collection", "tv_paused", "tv_dropped",
 ]
+
+ALL_MENU = ["all_in_progress", "all_next_up", "continue_watching"]
