@@ -1,22 +1,24 @@
 # Floppy for Kodi (plugin.video.floppy)
 
-Widgets and lists from your self-hosted [Floppy](https://github.com/dannyvfilms/Floppy) tracker, built for skins like Bingie. Items play through TMDb Helper (or any player add-on you point it at), and the add-on saves where you stopped back to Floppy so Continue Watching works.
+Widgets and lists from your self-hosted [Floppy](https://github.com/dannyvfilms/Floppy) tracker, useful for skins that support custom widgets but can be used standalone too. Items play through TMDb Helper (or any player add-on you point it at), and the add-on saves where you stopped back to Floppy so Continue Watching works.
 
 Needs Kodi 20 (Nexus) or newer. Tested against Floppy's own API code (October 2026 `latest`).
+
+[Download Latest Release](https://github.com/haywirephoenix/plugin.video.floppy/releases/latest/download/plugin.video.floppy.zip)
 
 ## Install
 
 1. Kodi: Settings → System → Add-ons → turn on **Unknown sources**.
-2. Add-ons → Install from zip file → `plugin.video.floppy-1.0.0.zip`.
+2. Add-ons → Install from zip file → `plugin.video.floppy-x.x.x.zip`.
 3. Open the add-on's settings:
-   - **Floppy address**: e.g. `http://192.168.1.10:8000` (no `/api`).
+   - **Floppy address**: e.g. `http://127.0.0.1:8000` (no `/api`).
    - **API token**: Floppy → Settings → Integrations → API Token.
    - **Test connection** to check both.
-4. Optional, Artwork → **TMDb API key**: adds fanart, landscape art and clear logos (Bingie uses these heavily). Floppy's own `TMDB_API` key works. Without it you get Floppy's posters only.
+4. Optional, Artwork → **TMDb API key**: adds fanart, landscape art and clear logos. Floppy's own `TMDB_API` key works. Without it you get Floppy's posters only.
 
 Keep your HTTP Scrobbler add-on: it still writes watch history. This add-on only reads lists and saves resume positions, which Floppy stores separately, so nothing is logged twice.
 
-## Adding widgets in Bingie
+## Adding widgets in a Custom Skin
 
 Customise the home menu → choose a widget → Add-ons/Video add-ons → Floppy → browse to the list and pick it. Or paste a path from below.
 
