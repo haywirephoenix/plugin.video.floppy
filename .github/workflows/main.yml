@@ -1,0 +1,57 @@
+name: Create Kodi Add-on Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Extract Version and Add-on ID from addon.xml
+        id: addon-info
+        run: |
+          # Use grep/sed to extract the version and id from addon.xml
+          VERSION=$(grep -oP 'version="\K[^"]+' addon.xml)
+          ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml)
+          
+          echo "Add-on ID: $ADDON_ID"
+          echo "Version: $VERSION"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "addon_id=$ADDON_ID" >> $GITHUB_OUTPUT
+
+      - name: Prepare Add-on Zip
+        run: |
+          ADDON_ID="${{ steps.addon-info.outputs.addon_id }}"
+          VERSION="${{ steps.addon-info.outputs.version }}"
+          
+          # Create a staging directory and copy files excluding git/workflow files
+          mkdir -p staging/$ADDON_ID
+          rsync -av --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='staging' \
+                    ./ staging/$ADDON_ID/
+          
+          # Create the zip archive
+          cd staging
+          zip -r "../$ADDON_ID-$VERSION.zip" "$ADDON_ID"
+          cd ..
+          
+          echo "Created zip: $ADDON_ID-$VERSION.zip"
+
+      - name: Create GitHub Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.addon-info.outputs.version }}
+          name: Release v${{ steps.addon-info.outputs.version }}
+          files: ${{ steps.addon-info.outputs.addon_id }}-${{ steps.addon-info.outputs.version }}.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
