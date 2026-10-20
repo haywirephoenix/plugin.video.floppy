@@ -595,9 +595,17 @@ class Router:
         if not xbmcgui.Dialog().yesno(common.ADDON_NAME,
                                       "Remove this from your Floppy watchlist?"):
             return
+        # Delete only the Planning entries: untracking would also wipe any earlier watch history.
+        media_type = self.params.get("media_type")
+        source = self.params.get("source") or "tmdb"
+        media_id = self.params.get("media_id")
+        lmt = self.params.get("lmt") or None
         try:
-            self.api.untrack(self.params.get("media_type"), self.params.get("source") or "tmdb",
-                             self.params.get("media_id"))
+            payload = self.api.consumptions(media_type, source, media_id, lmt=lmt)
+            planning = [row["consumption_id"] for row in (payload or {}).get("results") or []
+                        if row.get("status") == model.STATUS_PLANNING]
+            for consumption_id in planning:
+                self.api.delete_consumption(media_type, source, media_id, consumption_id, lmt=lmt)
         except FloppyError as exc:
             common.notify("Could not remove: {}".format(exc))
             return
