@@ -17,9 +17,12 @@ jobs:
       - name: Extract Version and Add-on ID from addon.xml
         id: addon-info
         run: |
-          # Use grep/sed to extract the version and id from addon.xml
-          VERSION=$(grep -oP 'version="\K[^"]+' addon.xml)
-          ADDON_ID=$(grep -oP 'id="\K[^"]+' addon.xml)
+          # Safely target only the main <addon> opening tag line
+          ADDON_LINE=$(grep '<addon ' addon.xml)
+          
+          # Extract id and version precisely from that line
+          ADDON_ID=$(echo "$ADDON_LINE" | grep -oP 'id="\K[^"]+')
+          VERSION=$(echo "$ADDON_LINE" | grep -oP 'version="\K[^"]+')
           
           echo "Add-on ID: $ADDON_ID"
           echo "Version: $VERSION"
