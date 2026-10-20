@@ -102,6 +102,23 @@
                 </setting>
             </group>
             <group id="2">
+                <setting id="scrobble" type="boolean" label="30218" help="30219">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="watched_percent" type="integer" label="30220" help="30221">
+                    <level>0</level>
+                    <default>80</default>
+                    <constraints>
+                        <minimum>50</minimum>
+                        <step>5</step>
+                        <maximum>100</maximum>
+                    </constraints>
+                    <control type="slider" format="percentage">
+                        <popup>false</popup>
+                    </control>
+                </setting>
                 <setting id="save_progress" type="boolean" label="30213" help="30216">
                     <level>0</level>
                     <default>true</default>

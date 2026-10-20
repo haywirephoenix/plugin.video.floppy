@@ -119,6 +119,22 @@ msgctxt "#30216"
 msgid "Saves where you stopped so Continue Watching can show it. Watch history still comes from your scrobbler."
 msgstr ""
 
+msgctxt "#30218"
+msgid "Scrobble: Send watch history to Floppy"
+msgstr ""
+
+msgctxt "#30220"
+msgid "Count as watched after"
+msgstr ""
+
+msgctxt "#30221"
+msgid "How far through a film or episode counts as watched in Floppy. Playing to the very end always counts."
+msgstr ""
+
+msgctxt "#30219"
+msgid "Logs plays through the Floppy API (replaces the HTTP Scrobbler). Turn the HTTP Scrobbler off first or plays are logged twice."
+msgstr ""
+
 msgctxt "#30300"
 msgid "Artwork"
 msgstr ""

@@ -7,6 +7,8 @@ separately from history, so nothing is ever logged twice.
 
 import threading
 import time
+import queue
+import uuid
 
 import xbmc
 import xbmcgui
@@ -16,8 +18,10 @@ from .api import FloppyAPI, FloppyError
 
 PENDING_MAX_AGE = 180  # seconds between pressing play and the video starting
 MIN_POSITION = 60  # do not save accidental starts
-COMPLETED_RATIO = 0.90
 
+def completed_ratio():
+        """Watched threshold from settings (default 80%)."""
+        return max(50, min(100, common.setting_int("watched_percent", 80))) / 100.0
 
 def _fmt(seconds):
     seconds = int(seconds)
@@ -39,6 +43,7 @@ class Playing:
         self.position = 0.0
         self.total = 0.0
         self.last_saved = time.time()
+        self.session = uuid.uuid4().hex
 
     def body(self, completed=False):
         body = {
@@ -60,6 +65,8 @@ class FloppyPlayer(xbmc.Player):
         super().__init__()
         self.current = None
         self._lock = threading.Lock()
+        self._queue = queue.Queue()
+        threading.Thread(target=self._worker, daemon=True).start()
 
     # -- identify what started ---------------------------------------------------
 
@@ -99,7 +106,7 @@ class FloppyPlayer(xbmc.Player):
         else:
             return None
         return playing if playing.ids else None
-
+    
     # -- callbacks -----------------------------------------------------------------
 
     def onAVStarted(self):
@@ -112,6 +119,15 @@ class FloppyPlayer(xbmc.Player):
             return
         common.log("Tracking position for {} {}".format(playing.kind, playing.ids))
         self._maybe_resume(playing)
+        common.log("Tracking position for {} {}".format(playing.kind, playing.ids))
+        self._maybe_resume(playing)
+        if self._scrobbling():
+            try:
+                playing.position = self.getTime()
+                playing.total = self.getTotalTime() or playing.total
+            except RuntimeError:
+                pass
+            self._dispatch(playing, "start")
 
     def onPlayBackPaused(self):
         self._save(final=False)
@@ -172,23 +188,34 @@ class FloppyPlayer(xbmc.Player):
             return
         interval = max(30, common.setting_int("progress_interval", 120))
         if time.time() - playing.last_saved >= interval:
-            self._save(final=False)
+            self._save(final=False, periodic=True)
 
-    def _save(self, final, ended=False):
+
+    def _save(self, final, ended=False, periodic=False):
         with self._lock:
             playing = self.current
             if final:
                 self.current = None
-        if not playing or not common.setting_bool("save_progress", True):
+        if not playing:
             return
         playing.last_saved = time.time()
         completed = ended or bool(
-            playing.total and playing.position >= playing.total * COMPLETED_RATIO)
+            playing.total and playing.position >= playing.total * completed_ratio())
+
+        if self._scrobbling() and not periodic:
+            if final:
+                self._dispatch(playing, "stop", completed=completed, final=True)
+            else:
+                self._dispatch(playing, "pause")
+            return
+
+        if not common.setting_bool("save_progress", True):
+            return
         if not completed and playing.position < MIN_POSITION:
             return
         body = playing.body(completed=completed)
         show_title = playing.title if playing.kind == "episode" else ""
-        threading.Thread(target=self._send, args=(body, final, show_title), daemon=True).start()
+        self._queue.put((self._send, (body, final, show_title)))
 
     @staticmethod
     def _show_tmdb_from_title(api, show_title):
@@ -227,6 +254,55 @@ class FloppyPlayer(xbmc.Player):
             api.invalidate()
             common.bump_widget_reload()
 
+    # -- scrobble -------------------------------------------------------------------
+    
+    def _worker(self):
+        while True:
+            fn, args = self._queue.get()
+            try:
+                fn(*args)
+            except Exception as exc:  # noqa: BLE001 - never let the worker die
+                common.log("Floppy send failed: {}".format(exc), xbmc.LOGWARNING)
+
+    @staticmethod
+    def _scrobbling():
+        return common.setting_bool("scrobble", False)
+
+    def _dispatch(self, playing, action, completed=None, final=False):
+        body = playing.body(completed=bool(completed))
+        body["action"] = action
+        if completed is None:
+            body.pop("completed", None)
+        if action == "stop":
+            body["client_event_id"] = "kodi-{}-stop".format(playing.session)
+        show_title = playing.title if playing.kind == "episode" else ""
+        self._queue.put((self._send_scrobble, (body, final, show_title)))
+
+    @classmethod
+    def _send_scrobble(cls, body, final, show_title=""):
+        api = FloppyAPI()
+        if not api.configured:
+            return
+        if body["media_type"] == "episode" and not body["ids"].get("tmdb"):
+            tmdb_id = cls._show_tmdb_from_title(api, show_title)
+            if tmdb_id:
+                body["ids"]["tmdb"] = tmdb_id
+        try:
+            api.scrobble(body)
+            common.log("Scrobbled {} {}s completed={} for {}".format(
+                body["action"], body.get("position_seconds"), body.get("completed"), body["ids"]))
+        except FloppyError as exc:
+            common.log("Scrobble {} failed: {}".format(body["action"], exc), xbmc.LOGWARNING)
+            return
+        if final:
+            api.invalidate()
+            common.bump_widget_reload()
+
+    def onPlayBackResumed(self):
+        with self._lock:
+            playing = self.current
+        if playing and self._scrobbling():
+            self._dispatch(playing, "start")
 
 def run():
     monitor = xbmc.Monitor()

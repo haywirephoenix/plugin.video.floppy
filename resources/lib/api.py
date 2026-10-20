@@ -99,6 +99,9 @@ class FloppyAPI:
 
     def info(self):
         return self.request("GET", "info")
+    
+    def scrobble(self, body):
+        return self.request("POST", "scrobble", body=body)
 
     def media(self, media_type, ttl=0, **params):
         return self.get("media/{}".format(media_type), params, ttl)
