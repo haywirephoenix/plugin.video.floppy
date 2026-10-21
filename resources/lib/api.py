@@ -9,6 +9,29 @@ from . import cache, common, perf
 
 CACHE_PREFIX = "floppy:"
 
+# Fields Floppy updates for its own bookkeeping (metadata_fetched_at, scored_at, popularity and
+# ranking scores...). The add-on never shows them, so a change in them alone must not reload widgets.
+# Of the time fields only updated_at is read (it orders Continue Watching).
+_SHOWN_TIME_FIELDS = {"updated_at"}
+_HIDDEN_FIELDS = {"final_score", "display_score", "score_breakdown"}
+_HIDDEN_PARTS = ("popularity", "opencritic")
+
+
+def _shown(value):
+    """``value`` without the fields above, for telling whether a refresh changes what widgets show."""
+    if isinstance(value, dict):
+        return {
+            k: _shown(v) for k, v in value.items()
+            if not (
+                (k.endswith("_at") and k not in _SHOWN_TIME_FIELDS)
+                or k in _HIDDEN_FIELDS
+                or any(part in k for part in _HIDDEN_PARTS)
+            )
+        }
+    if isinstance(value, list):
+        return [_shown(v) for v in value]
+    return value
+
 
 class FloppyError(Exception):
     def __init__(self, message, status=None):
@@ -117,15 +140,22 @@ class FloppyAPI:
         return data
 
     def refresh(self, key, path, params, ttl):
-        """Fetch a cached request again; True when the answer differs from what was cached."""
+        """Fetch a cached request again; True when widgets would show something different."""
         if key != self.cache_key(path, params):
             return False  # cached under another address or token
-        entry = cache.get_entry(key)
         data = self.request("GET", path, params)
         if data is None:
             return False
+        # Read after the request: a widget may have fetched and cached the same answer meanwhile.
+        entry = cache.get_entry(key)
         cache.set(key, data, ttl)
-        return not entry or entry[2] != json.dumps(data)
+        if not entry:
+            return True
+        try:
+            old = json.loads(entry[2])
+        except ValueError:
+            return True
+        return _shown(old) != _shown(data)
 
     def invalidate(self):
         cache.delete_prefix(CACHE_PREFIX)
