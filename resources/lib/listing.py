@@ -146,11 +146,11 @@ def context_menu(entry, in_resume_list=False):
         elif entry.get("status") is None:
             items.append(("Floppy: Add to watchlist", "RunPlugin({})".format(common.plugin_url(
                 action="add_watchlist", media_type=media_type, tmdb=entry["tmdb"]))))
-        # Tracked movies/shows (watchlist items already have "Remove from watchlist").
+        # Any tracked movie/show, watchlist items included, can be removed from Floppy entirely.
         # Season rows are skipped so a season in a list can never delete the whole show.
     if (
         kind in ("movie", "tvshow")
-        and entry.get("status") not in (None, 0)
+        and entry.get("status") is not None
         and entry.get("media_id")
         and entry.get("season") is None
     ):
