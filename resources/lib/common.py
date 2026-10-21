@@ -97,3 +97,11 @@ def bump_widget_reload():
     import time
 
     home_property(PROP_RELOAD, str(int(time.time())))
+
+
+def widget_reload_time():
+    """When Floppy data last changed (seconds), as signalled by this add-on or TMDb Helper."""
+    try:
+        return int(home_property(PROP_RELOAD) or 0)
+    except ValueError:
+        return 0

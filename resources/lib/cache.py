@@ -24,7 +24,11 @@ def _connect():
     return conn
 
 
-def get(key):
+def get(key, ttl=0, not_before=0):
+    """Cached value, or None if missing, expired, or stored before ``not_before``.
+
+    The store time is worked out as ``expires - ttl``, so ``ttl`` must match the one used to set it.
+    """
     with _LOCK:
         conn = _connect()
         try:
@@ -37,6 +41,8 @@ def get(key):
         return None
     expires, value = row
     if expires < time.time():
+        return None
+    if not_before and expires - ttl < not_before:
         return None
     try:
         return json.loads(value)
