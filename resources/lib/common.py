@@ -9,6 +9,8 @@ import xbmcaddon
 import xbmcgui
 import xbmcvfs
 
+from . import perf
+
 ADDON_ID = "plugin.video.floppy"
 ADDON = xbmcaddon.Addon(ADDON_ID)
 ADDON_NAME = ADDON.getAddonInfo("name")
@@ -19,6 +21,10 @@ PROFILE_DIR = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
 HOME = 10000
 PROP_RELOAD = "floppy.widget_reload"
 PROP_PENDING_PLAY = "floppy.pending_play"
+PROP_CHANGED = "floppy.changed_at"
+
+# A plugin run lasts well under a second, so it reads each setting once (see freeze_settings).
+_frozen = None
 
 
 def addon():
@@ -26,20 +32,37 @@ def addon():
     return xbmcaddon.Addon(ADDON_ID)
 
 
+def freeze_settings():
+    """Read each setting at most once for the rest of this run (plugin runs only, not the service)."""
+    global _frozen
+    if _frozen is None:
+        _frozen = {}
+
+
+def _raw_setting(key):
+    if _frozen is not None and key in _frozen:
+        return _frozen[key]
+    with perf.span("settings"):
+        value = (ADDON if _frozen is not None else addon()).getSetting(key)
+    if _frozen is not None:
+        _frozen[key] = value
+    return value
+
+
 def setting(key, default=""):
-    value = addon().getSetting(key)
+    value = _raw_setting(key)
     return value if value != "" else default
 
 
 def setting_int(key, default=0):
     try:
-        return int(addon().getSetting(key))
+        return int(_raw_setting(key))
     except (TypeError, ValueError):
         return default
 
 
 def setting_bool(key, default=False):
-    value = addon().getSetting(key)
+    value = _raw_setting(key)
     if value == "":
         return default
     return value.lower() == "true"
@@ -92,16 +115,48 @@ def get_json_property(name):
         return None
 
 
-def bump_widget_reload():
-    """Change the reload token that widget paths can include to force a refresh."""
+def _reload_parts():
+    """The reload token is "<change time>" (TMDb Helper) or "<change time>.<n>" (our service)."""
+    token = home_property(PROP_RELOAD) or ""
+    head, _, tail = token.partition(".")
+    try:
+        return int(head or 0), tail
+    except ValueError:
+        return 0, tail
+
+
+def bump_widget_reload(data_changed=True):
+    """Change the reload token that widget paths include, so Kodi fetches the widgets again.
+
+    With ``data_changed`` the token also says Floppy data changed now, so lists cached before
+    it are out of date. Without it (the service has just refreshed the cache) only the token
+    changes and the time it carries stays put.
+    """
     import time
 
-    home_property(PROP_RELOAD, str(int(time.time())))
+    if data_changed:
+        home_property(PROP_RELOAD, str(int(time.time())))
+        return
+    changed, _ = _reload_parts()
+    home_property(PROP_RELOAD, "{}.{}".format(changed, int(time.time() * 1000) % 10 ** 8))
 
 
 def widget_reload_time():
     """When Floppy data last changed (seconds), as signalled by this add-on or TMDb Helper."""
+    return _reload_parts()[0]
+
+
+def mark_data_changed():
+    """Record that Floppy data just changed; the service refreshes the widget lists, then reloads them."""
+    import time
+
+    home_property(PROP_CHANGED, str(time.time()))
+
+
+def data_changed_time():
+    """Lists cached before this are out of date."""
     try:
-        return int(home_property(PROP_RELOAD) or 0)
+        changed = float(home_property(PROP_CHANGED) or 0)
     except ValueError:
-        return 0
+        changed = 0.0
+    return max(changed, widget_reload_time())

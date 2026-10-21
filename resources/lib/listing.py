@@ -180,7 +180,9 @@ def _episode_label(entry):
 
 def build(entry, in_resume_list=False):
     kind = entry["kind"]
-    extra = tmdb.details("movie" if kind == "movie" else "tv", entry.get("tmdb")) if entry.get("tmdb") else {}
+    # Artwork was looked up by tmdb.prefetch; anything it left to the service shows Floppy's poster.
+    extra = tmdb.details("movie" if kind == "movie" else "tv", entry.get("tmdb"),
+                         fetch=False) if entry.get("tmdb") else {}
 
     if kind == "episode":
         label = _episode_label(entry)

@@ -10,7 +10,7 @@ import xbmcplugin
 import itertools
 import threading
 
-from . import cache, categories, common, listing, model, shows, tmdb
+from . import cache, categories, common, listing, model, perf, tmdb
 from .api import FloppyAPI, FloppyError
 
 
@@ -21,6 +21,9 @@ class Router:
         query = argv[2][1:] if len(argv) > 2 and argv[2].startswith("?") else ""
         self.params = dict(parse_qsl(query))
         self.api = FloppyAPI()
+        # Widgets get whatever is cached straight away; the service keeps it fresh.
+        self.widget = self.params.get("widget") == "1" or listing.is_widget_context()
+        self.api.serve_stale = self.widget
 
     # -- helpers --------------------------------------------------------------
 
@@ -31,7 +34,9 @@ class Router:
         if items:
             xbmcplugin.addDirectoryItems(self.handle, items, len(items))
         xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
+        perf.mark("add_items")
         xbmcplugin.endOfDirectory(self.handle, succeeded=succeeded, cacheToDisc=cache_to_disc)
+        perf.mark("end_of_directory")
 
     def _need_setup(self):
         if self.api.configured:
@@ -59,15 +64,19 @@ class Router:
         return common.setting_bool("next_page", True) and not listing.is_widget_context()
 
     def _render_entries(self, entries, has_more, content, in_resume_list, next_params):
+        perf.mark("fetch")
         tmdb.prefetch(
-            ("movie" if e["kind"] == "movie" else "tv", e.get("tmdb")) for e in entries
+            (("movie" if e["kind"] == "movie" else "tv", e.get("tmdb")) for e in entries),
+            deadline=1.0 if self.widget else None,
         )
+        perf.mark("prefetch")
         items = []
         for entry in entries:
             try:
                 items.append(listing.build(entry, in_resume_list))
             except Exception as exc:  # noqa: BLE001 - one bad row must not empty a widget
                 common.log("Skipping item {}: {}".format(entry.get("title"), exc), xbmc.LOGWARNING)
+        perf.mark("build")
         if has_more and self._show_next_page():
             page = int(self.params.get("page") or 0) + 1
             url = common.plugin_url(**dict(next_params, page=page))
@@ -535,8 +544,8 @@ class Router:
     # -- actions --------------------------------------------------------------
 
     def _after_change(self, message):
-        self.api.invalidate()
-        common.bump_widget_reload()
+        # The service refreshes the widget lists, then reloads them (see refresher.py).
+        common.mark_data_changed()
         common.notify(message)
         xbmc.executebuiltin("Container.Refresh")
 
@@ -676,19 +685,26 @@ class Router:
             lines.append("")
         xbmcgui.Dialog().textviewer("Floppy widget paths", "\n".join(lines))
     
+    # shows is imported only by the routes that use it, to keep widget start-up light.
+
     def seasons(self):
+        from . import shows
         shows.list_seasons(self)
 
     def episodes(self):
+        from . import shows
         shows.list_episodes(self)
 
     def mark_season_watched(self):
+        from . import shows
         shows.mark_season_watched(self)
 
     def mark_show_watched(self):
+        from . import shows
         shows.mark_show_watched(self)
 
     def unwatch(self):
+        from . import shows
         shows.unwatch(self)
     
     def settings(self):
@@ -701,7 +717,9 @@ class Router:
 
 def run(argv=None):
     argv = argv or sys.argv
+    common.freeze_settings()
     router = Router(argv)
+    perf.mark("init")
     action = router.params.get("action", "root")
     handler = getattr(router, action, None)
     if handler is None or action.startswith("_"):
@@ -709,3 +727,6 @@ def run(argv=None):
         router._finish([], succeeded=False)
         return
     handler()
+    if common.setting_bool("debug"):
+        detail = router.params.get("cat") or router.params.get("row_id") or ""
+        common.log(perf.summary("{} {}".format(action, detail).strip()), xbmc.LOGINFO)

@@ -15,6 +15,7 @@ import xbmcgui
 
 from . import cache, common
 from .api import FloppyAPI, FloppyError
+from .refresher import Refresher
 
 PENDING_MAX_AGE = 180  # seconds between pressing play and the video starting
 MIN_POSITION = 60  # do not save accidental starts
@@ -67,7 +68,13 @@ class FloppyPlayer(xbmc.Player):
         self.current = None
         self._lock = threading.Lock()
         self._queue = queue.Queue()
-        threading.Thread(target=self._worker, daemon=True).start()
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._thread.start()
+
+    def shutdown(self, timeout=3):
+        """Stop the send worker; Kodi waits on every Python thread, daemon or not, before exiting."""
+        self._queue.put(None)
+        self._thread.join(timeout)
 
     # -- identify what started ---------------------------------------------------
 
@@ -278,14 +285,16 @@ class FloppyPlayer(xbmc.Player):
             common.log("Could not save position: {}".format(exc), xbmc.LOGWARNING)
             return
         if final:
-            api.invalidate()
-            common.bump_widget_reload()
+            common.mark_data_changed()
 
     # -- scrobble -------------------------------------------------------------------
     
     def _worker(self):
         while True:
-            fn, args = self._queue.get()
+            job = self._queue.get()
+            if job is None:
+                return
+            fn, args = job
             try:
                 fn(*args)
             except Exception as exc:  # noqa: BLE001 - never let the worker die
@@ -322,8 +331,7 @@ class FloppyPlayer(xbmc.Player):
             common.log("Scrobble {} failed: {}".format(body["action"], exc), xbmc.LOGWARNING)
             return
         if final:
-            api.invalidate()
-            common.bump_widget_reload()
+            common.mark_data_changed()
 
     def onPlayBackResumed(self):
         with self._lock:
@@ -334,6 +342,8 @@ class FloppyPlayer(xbmc.Player):
 def run():
     monitor = xbmc.Monitor()
     player = FloppyPlayer()
+    widgets = Refresher()
+    widgets.start()
     common.log("Service started", xbmc.LOGINFO)
     last_purge = 0
     while not monitor.abortRequested():
@@ -349,4 +359,6 @@ def run():
                 cache.purge_expired()
             except Exception:  # noqa: BLE001
                 pass
+    widgets.shutdown()
+    player.shutdown()
     common.log("Service stopped", xbmc.LOGINFO)

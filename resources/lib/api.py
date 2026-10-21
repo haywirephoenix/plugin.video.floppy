@@ -2,12 +2,10 @@
 
 import hashlib
 import json
-import ssl
-from urllib.error import HTTPError, URLError
+import time
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
-from . import cache, common
+from . import cache, common, perf
 
 CACHE_PREFIX = "floppy:"
 
@@ -27,6 +25,8 @@ class FloppyAPI:
             "{}|{}".format(self.base_url, self.token).encode("utf-8")
         ).hexdigest()[:10]
         self._cache_ns = "{}{}:".format(CACHE_PREFIX, token_hash)
+        # Widgets show a cached list even when it is out of date; the service refreshes it.
+        self.serve_stale = False
 
     # -- plumbing -----------------------------------------------------------
 
@@ -52,6 +52,11 @@ class FloppyAPI:
     def request(self, method, path, params=None, body=None):
         if not self.configured:
             raise FloppyError("Floppy address or API token is not set")
+        # Imported here: a widget served from the cache never needs the network stack (~40 ms).
+        import ssl
+        from urllib.error import HTTPError, URLError
+        from urllib.request import Request, urlopen
+
         url = self._url(path, params)
         data = None
         headers = {
@@ -66,7 +71,7 @@ class FloppyAPI:
         common.log("{} {}".format(method, url))
         context = ssl.create_default_context() if url.startswith("https") else None
         try:
-            with urlopen(req, timeout=self.timeout, context=context) as resp:
+            with perf.span("floppy_http"), urlopen(req, timeout=self.timeout, context=context) as resp:
                 raw = resp.read()
                 if not raw:
                     return None
@@ -81,17 +86,46 @@ class FloppyAPI:
         except (URLError, OSError, ValueError) as exc:
             raise FloppyError("Could not reach Floppy: {}".format(exc))
 
+    def cache_key(self, path, params):
+        return self._cache_ns + path + "?" + json.dumps(params or {}, sort_keys=True)
+
     def get(self, path, params=None, ttl=0):
-        key = self._cache_ns + path + "?" + json.dumps(params or {}, sort_keys=True)
+        key = self.cache_key(path, params)
         if ttl > 0:
-            # Skip entries stored before the last change by this or another add-on (e.g. TMDb Helper)
-            hit = cache.get(key, ttl=ttl, not_before=common.widget_reload_time())
-            if hit is not None:
-                return hit
+            if self.serve_stale:
+                cache.track_widget_key(key, path, params or {}, ttl)
+            entry = cache.get_entry(key)
+            if entry:
+                stored, expires, raw = entry
+                if stored is None:
+                    stored = expires - ttl
+                now = time.time()
+                # Out of date once expired, or stored before the last change by this or
+                # another add-on (e.g. TMDb Helper).
+                current = expires >= now and stored >= common.data_changed_time()
+                if current or (self.serve_stale and stored >= now - cache.STALE_MAX):
+                    try:
+                        data = json.loads(raw)
+                    except ValueError:
+                        data = None
+                    if data is not None:
+                        perf.add("floppy_cache_hit" if current else "floppy_stale_hit")
+                        return data
         data = self.request("GET", path, params)
         if ttl > 0 and data is not None:
             cache.set(key, data, ttl)
         return data
+
+    def refresh(self, key, path, params, ttl):
+        """Fetch a cached request again; True when the answer differs from what was cached."""
+        if key != self.cache_key(path, params):
+            return False  # cached under another address or token
+        entry = cache.get_entry(key)
+        data = self.request("GET", path, params)
+        if data is None:
+            return False
+        cache.set(key, data, ttl)
+        return not entry or entry[2] != json.dumps(data)
 
     def invalidate(self):
         cache.delete_prefix(CACHE_PREFIX)
