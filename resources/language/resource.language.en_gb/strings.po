@@ -40,7 +40,7 @@ msgid "Test connection"
 msgstr ""
 
 msgctxt "#30105"
-msgid "The address you open Floppy at, for example http://192.168.1.10:8000"
+msgid "The address you open Floppy at, for example http://localhost:8000"
 msgstr ""
 
 msgctxt "#30106"

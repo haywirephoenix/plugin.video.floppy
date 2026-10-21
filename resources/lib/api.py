@@ -84,7 +84,8 @@ class FloppyAPI:
     def get(self, path, params=None, ttl=0):
         key = self._cache_ns + path + "?" + json.dumps(params or {}, sort_keys=True)
         if ttl > 0:
-            hit = cache.get(key)
+            # Skip entries stored before the last change by this or another add-on (e.g. TMDb Helper)
+            hit = cache.get(key, ttl=ttl, not_before=common.widget_reload_time())
             if hit is not None:
                 return hit
         data = self.request("GET", path, params)
@@ -148,9 +149,17 @@ class FloppyAPI:
     def watch_movie(self, source, media_id):
         return self.request("POST", "media/movie/{}/{}/watch".format(source, media_id), body={})
 
-    def watch_episode(self, source, media_id, season, episode):
-        path = "media/tv/{}/{}/{}/episodes/{}/watch".format(source, media_id, season, episode)
-        return self.request("POST", path, body={})
+    def unwatch_movie(self, source, media_id):
+        """Remove the most recent play of a movie."""
+        return self.request("DELETE", "media/movie/{}/{}/watch".format(source, media_id))
+
+    def consumptions(self, media_type, source, media_id, lmt=None):
+        return self.get("media/{}/{}/{}/history".format(media_type, source, media_id),
+                        {"library_media_type": lmt, "limit": 200})
+
+    def delete_consumption(self, media_type, source, media_id, consumption_id, lmt=None):
+        path = "media/{}/{}/{}/history/{}".format(media_type, source, media_id, consumption_id)
+        return self.request("DELETE", path, params={"library_media_type": lmt})
 
     def add_to_watchlist(self, media_type, source, media_id):
         body = {"media_id": str(media_id), "source": source, "status": 0}

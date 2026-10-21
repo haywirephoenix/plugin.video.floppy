@@ -1,8 +1,8 @@
-"""Background service: offers Floppy resume points and saves positions back.
+"""Background service: offers Floppy resume points, saves positions back and scrobbles.
 
-Watch history is left to your scrobbler (Floppy's Kodi webhook via the HTTP
-Scrobbler add-on). This only stores where you stopped, which Floppy keeps
-separately from history, so nothing is ever logged twice.
+With "Send watch history to Floppy" on, plays go through Floppy's scrobble API and
+TMDb Helper's own Floppy scrobbling stands down so nothing is logged twice. With it
+off, only resume positions are saved, which never create a play.
 """
 
 import threading
@@ -18,6 +18,7 @@ from .api import FloppyAPI, FloppyError
 
 PENDING_MAX_AGE = 180  # seconds between pressing play and the video starting
 MIN_POSITION = 60  # do not save accidental starts
+PROP_TMDBHELPER_PLAYING = "TMDbHelper.PlayerInfoString"  # set by TMDb Helper's player
 
 def completed_ratio():
         """Watched threshold from settings (default 80%)."""
@@ -84,6 +85,32 @@ class FloppyPlayer(xbmc.Player):
         return Playing(kind, ids, pending.get("season"), pending.get("episode"),
                        pending.get("title") or "", int(pending.get("resume") or 0))
 
+    @staticmethod
+    def _from_tmdbhelper(kind, season=None, episode=None, tag_ids=None):
+        """Exact ids for playback started by TMDb Helper's player, if it is what is playing.
+
+        TMDb Helper keeps its last played item in a Home window property; episodes carry
+        the show's ids, which is what Floppy expects. The property is not cleared after
+        playback, so it is only used when it matches what is playing now.
+        """
+        info = common.get_json_property(PROP_TMDBHELPER_PLAYING) or {}
+        if not info.get("tmdb_id"):
+            return {}
+        if kind == "movie" and info.get("tmdb_type") != "movie":
+            return {}
+        if kind == "movie" and any(
+            value and info.get(key) and str(info[key]) != str(value)
+            for key, value in (("tmdb_id", (tag_ids or {}).get("tmdb")), ("imdb_id", (tag_ids or {}).get("imdb")))
+        ):
+            return {}  # left over from an earlier TMDb Helper play
+        if kind == "episode" and (
+            info.get("tmdb_type") not in ("episode", "tv")
+            or info.get("season") != season
+            or info.get("episode") != episode
+        ):
+            return {}
+        return {"tmdb": info.get("tmdb_id"), "imdb": info.get("imdb_id"), "tvdb": info.get("tvdb_id")}
+
     def _from_player(self):
         try:
             tag = self.getVideoInfoTag()
@@ -91,8 +118,9 @@ class FloppyPlayer(xbmc.Player):
             return None
         media_type = tag.getMediaType()
         if media_type == "movie":
-            ids = {"tmdb": tag.getUniqueID("tmdb"), "imdb": tag.getUniqueID("imdb") or tag.getIMDBNumber(),
-                   "tvdb": tag.getUniqueID("tvdb")}
+            tag_ids = {"tmdb": tag.getUniqueID("tmdb"), "imdb": tag.getUniqueID("imdb") or tag.getIMDBNumber(),
+                       "tvdb": tag.getUniqueID("tvdb")}
+            ids = self._from_tmdbhelper("movie", tag_ids=tag_ids) or tag_ids
             playing = Playing("movie", ids, title=tag.getTitle())
         elif media_type == "episode":
             season, episode = tag.getSeason(), tag.getEpisode()
@@ -100,8 +128,9 @@ class FloppyPlayer(xbmc.Player):
                 return None
             # A playing episode's tmdb uniqueid may be the episode's own id, which
             # Floppy would read as a show id. IMDb/TVDb ids are safe either way.
-            ids = {"imdb": tag.getUniqueID("imdb") or tag.getIMDBNumber(),
-                   "tvdb": tag.getUniqueID("tvdb")}
+            ids = self._from_tmdbhelper("episode", season, episode) or {
+                "imdb": tag.getUniqueID("imdb") or tag.getIMDBNumber(),
+                "tvdb": tag.getUniqueID("tvdb")}
             playing = Playing("episode", ids, season, episode, tag.getTVShowTitle())
         else:
             return None
@@ -117,8 +146,6 @@ class FloppyPlayer(xbmc.Player):
             self.current = playing
         if not playing:
             return
-        common.log("Tracking position for {} {}".format(playing.kind, playing.ids))
-        self._maybe_resume(playing)
         common.log("Tracking position for {} {}".format(playing.kind, playing.ids))
         self._maybe_resume(playing)
         if self._scrobbling():
@@ -205,9 +232,9 @@ class FloppyPlayer(xbmc.Player):
         if self._scrobbling() and not periodic:
             if final:
                 self._dispatch(playing, "stop", completed=completed, final=True)
-            else:
-                self._dispatch(playing, "pause")
-            return
+                return
+            # A scrobbled pause only updates Now Playing, so also save the position below.
+            self._dispatch(playing, "pause")
 
         if not common.setting_bool("save_progress", True):
             return

@@ -5,7 +5,7 @@
             <group id="1">
                 <setting id="base_url" type="string" label="30101" help="30105">
                     <level>0</level>
-                    <default>http://192.168.1.10:8000</default>
+                    <default>http://localhost:8000</default>
                     <control type="edit" format="string">
                         <heading>30101</heading>
                     </control>

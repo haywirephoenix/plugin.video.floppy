@@ -22,7 +22,7 @@ Needs Kodi 20 (Nexus) or newer and a Floppy instance with its API token. Built a
 1. Kodi: Settings → System → Add-ons → turn on **Unknown sources**.
 2. Add-ons → Install from zip file → `plugin.video.floppy-x.x.x.zip`.
 3. Open the add-on's settings:
-   - **Floppy address**: e.g. `http://127.0.0.1:8000` (no `/api`).
+   - **Floppy address**: e.g. `http://localhost:8000` (the default; no `/api`).
    - **API token**: Floppy → Settings → Integrations → API Token.
    - **Test connection** to check both.
 4. Optional, Artwork → **TMDb API key**: adds fanart, landscape art and clear logos, and enables collection and people search. Floppy's own `TMDB_API` key works. Without it you get Floppy's posters only.
@@ -181,7 +181,7 @@ Playback started from this add-on is identified exactly by its TMDb id. Playback
 | Episodes | Mark as watched / unwatched, remove from Continue Watching, go to show |
 | Everything | Refresh widgets |
 
-**Mark show watched** and **Mark season watched** only mark aired episodes you haven't watched yet, and skip specials. They show progress as they go and can be cancelled. **Remove from Floppy** deletes the title's status, rating and history in Floppy, after asking you first.
+**Mark show watched** and **Mark season watched** only mark aired episodes you haven't watched yet, and skip specials. They show progress as they go and can be cancelled. **Remove from Floppy** deletes the title's status, rating and history in Floppy, after asking you first. It is offered on watchlist items too, for titles you no longer want tracked at all; **Remove from watchlist** only removes the Planning entry and keeps any earlier watch history.
 
 ## Anime
 
