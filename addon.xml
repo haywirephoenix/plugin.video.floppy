@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.floppy" name="Floppy" version="1.0.1" provider-name="Floppy community">
+<addon id="plugin.video.floppy" name="Floppy" version="1.1.0" provider-name="Floppy community">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
     </requires>
@@ -14,7 +14,7 @@
         <platform>all</platform>
         <license>GPL-3.0-or-later</license>
         <source>https://github.com/dannyvfilms/Floppy</source>
-        <news>1.1.0: Seasons and episodes browse inside the add-on with Floppy's watched state; mark watched/unwatched and mark season watched.</news>
+        <news>1.1.0: Seasons and episodes browse inside the add-on with Floppy's watched state; mark watched/unwatched and mark season watched; Remove from Floppy on watchlist items; Remove from watchlist keeps watch history; works alongside TMDb Helper's Floppy sync without double scrobbling.</news>
         <assets>
             <icon>resources/icon.png</icon>
             <fanart>resources/fanart.jpg</fanart>
