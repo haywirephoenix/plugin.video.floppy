@@ -315,6 +315,14 @@ def build(entry, in_resume_list=False):
             li.setProperty("floppy.next_play_path", play_route(nxt))
             li.setProperty("floppy.next_label", "S{:02d}E{:02d}".format(
                 int(entry["next_season"]), int(entry["next_episode"])))
+    if kind in ("movie", "tvshow") and entry.get("tmdb"):
+        # Add / Remove from watchlist button: floppy.status 0 means on the watchlist (planning);
+        # no floppy.status means Floppy doesn't track the item, as in context_menu()
+        if entry.get("status") is not None:
+            li.setProperty("floppy.status", str(entry["status"]))
+        li.setProperty("floppy.remove_watchlist_path", common.plugin_url(
+            action="remove_watchlist", media_type="movie" if kind == "movie" else "tv",
+            source=entry.get("source") or "tmdb", media_id=entry.get("media_id") or entry["tmdb"]))
 
     li.setProperty("IsPlayable", "false")
     li.addContextMenuItems(context_menu(entry, in_resume_list))
