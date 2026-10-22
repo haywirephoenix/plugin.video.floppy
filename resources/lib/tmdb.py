@@ -155,6 +155,37 @@ def details(kind, tmdb_id, fetch=True):
     return result
 
 
+def season_episodes(tmdb_id, season):
+    """Map episode number -> {plot, runtime (minutes), thumb, premiered} for one TV season, cached.
+
+    One request per season; used to fill gaps in Floppy's own episode data.
+    """
+    if not enabled() or not tmdb_id or season is None:
+        return {}
+    language = _language()
+    cache_key = "tmdb:tvseason:{}:{}:{}".format(tmdb_id, season, language)
+    hit = cache.get(cache_key)
+    if hit is None:
+        try:
+            data = _get("tv/{}/season/{}".format(tmdb_id, season), {"language": language})
+        except LOOKUP_ERRORS as exc:
+            common.log("TMDb season lookup failed for tv {} season {}: {}".format(tmdb_id, season, exc))
+            cache.set(cache_key, {}, MISS_TTL)
+            return {}
+        # JSON keys are strings, so episode numbers are stored as strings.
+        hit = {
+            str(ep["episode_number"]): {
+                "plot": ep.get("overview") or "",
+                "runtime": int(ep.get("runtime") or 0),
+                "thumb": _image(ep.get("still_path"), "w780"),
+                "premiered": ep.get("air_date") or "",
+            }
+            for ep in data.get("episodes") or [] if ep.get("episode_number") is not None
+        }
+        cache.set(cache_key, hit, TTL)
+    return {int(number): ep for number, ep in hit.items()}
+
+
 def prefetch(pairs, deadline=None):
     """Load details for (kind, tmdb_id) pairs: cached ones in one query, the rest in parallel.
 

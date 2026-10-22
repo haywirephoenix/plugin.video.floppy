@@ -142,13 +142,21 @@ def list_episodes(router):
         return
     extra = tmdb.details("tv", tmdb_id)
     resume = _resume_map(router, tmdb_id, season)
+    rows = (payload or {}).get("results") or []
+    # TMDb fills only what Floppy's episode data lacks; one cached request per season.
+    fill = {}
+    items = [row.get("item") or {} for row in rows]
+    if any(not i.get("synopsis") or not i.get("runtime_minutes") or not model._img(i.get("image"))
+           for i in items):
+        fill = tmdb.season_episodes(tmdb_id, season)
 
     entries = []
-    for row in (payload or {}).get("results") or []:
+    for row in rows:
         item = row.get("item") or {}
         number = item.get("episode_number")
         if number is None:
             continue
+        gap = fill.get(number) or {}
         aired = _date(item.get("release_datetime"))
         entry = {
             "kind": "episode",
@@ -161,12 +169,12 @@ def list_episodes(router):
             "title": item.get("title") or "Episode {}".format(number),
             "season": season,
             "episode": number,
-            "thumb": model._img(item.get("image")),
+            "thumb": model._img(item.get("image")) or gap.get("thumb", ""),
             "poster": p.get("poster") or extra.get("poster", ""),
             "premiered": aired,
-            "plot": item.get("synopsis") or "",
+            "plot": item.get("synopsis") or gap.get("plot", ""),
             "playcount": 1 if row.get("tracked") else 0,
-            "runtime": int(item.get("runtime_minutes") or 0) * 60,
+            "runtime": int(item.get("runtime_minutes") or gap.get("runtime") or 0) * 60,
         }
         pos, total = resume.get(number, (0, 0))
         if pos >= 60 and not (total and pos >= total * 0.95):
