@@ -395,24 +395,55 @@ class Router:
         content = "movies" if types == ["movie"] else "tvshows" if types == ["tv"] else "videos"
         self._render_entries(entries, False, content, False, {})
 
+    # Fields a tracked row adds to a search result (status 0 is Planning, so test for None).
+    _TRACKED_FIELDS = ("status", "playcount", "user_score", "episodes_left", "next_season",
+                       "next_episode", "resume_pos", "resume_total", "tmdb", "imdb", "tvdb",
+                       "source", "media_id", "title", "poster", "plot", "runtime")
+
     def _mark_tracked(self, entries, types, query):
-        """Copy library status onto results so the context menu matches the widgets."""
-        status = {}
-        for kind in types:
+        """Merge library rows into results so they carry what the widgets carry."""
+        buckets = list(types)
+        if "tv" in types:
+            buckets.append("anime")  # a separate Floppy library for shows
+        payloads = {}
+
+        def run(bucket):
             try:
-                payload = self.api.media(kind, ttl=categories._list_ttl(), search=query, limit=50)
+                payloads[bucket] = self.api.media(bucket, ttl=categories._list_ttl(),
+                                                  search=query, limit=50)
             except FloppyError:
-                continue
-            for row in (payload or {}).get("results") or []:
-                item = row.get("item") or {}
-                status[(kind, item.get("source"), str(item.get("media_id")))] = row.get("status")
+                payloads[bucket] = None
+
+        threads = [threading.Thread(target=run, args=(b,)) for b in buckets]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        tracked = {}
+        for bucket in buckets:  # tv before anime: a show in both keeps its TV row
+            kind = "movie" if bucket == "movie" else "tv"
+            for row in (payloads.get(bucket) or {}).get("results") or []:
+                found = model.from_media(row)
+                if not found or (found["kind"] == "movie") != (kind == "movie"):
+                    continue
+                found.pop("season", None)
+                found["lmt"] = "anime" if bucket == "anime" else None
+                for key in ((kind, found.get("source"), found.get("media_id")),
+                            (kind, "tmdb", found.get("tmdb"))):
+                    if key[2]:
+                        tracked.setdefault(key, found)
         for entry in entries:
             kind = "movie" if entry["kind"] == "movie" else "tv"
-            key = (kind, entry.get("source"), str(entry.get("media_id")))
-            if key in status:
-                entry["status"] = status[key]
-                if status[key] == model.STATUS_COMPLETED:
-                    entry["playcount"] = 1
+            found = (tracked.get((kind, entry.get("source"), str(entry.get("media_id"))))
+                     or tracked.get((kind, "tmdb", entry.get("tmdb"))))
+            if not found:
+                continue
+            for field in self._TRACKED_FIELDS:
+                value = found.get(field)
+                if value is not None and value != "":
+                    entry[field] = value
+            entry["lmt"] = found["lmt"]
 
     def _search_tmdb(self, kind, query):
         if not tmdb.enabled():
