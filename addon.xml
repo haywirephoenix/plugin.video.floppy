@@ -9,7 +9,7 @@
     <extension point="xbmc.service" library="service.py"/>
     <extension point="xbmc.addon.metadata">
         <summary lang="en_GB">Widgets and lists from your self-hosted Floppy tracker</summary>
-        <description lang="en_GB">Browse your Floppy (self-hosted media tracker) library from Kodi: Continue Watching, Next Up, Top Picks, Trending, watchlists, history, calendar and your own lists. Every category can be used as a skin widget. Items play through TMDb Helper or any player add-on you configure, and resume positions are saved back to Floppy.</description>
+        <description lang="en_GB">Browse your Floppy (self-hosted media tracker) library from Kodi: Continue Watching, Next Up, Top Picks, Trending, watchlists, history, calendar and your own lists. Every category can be used as a skin widget. Items play through any player add-on you configure, and resume positions are saved back to Floppy.</description>
         <disclaimer lang="en_GB">Requires a running Floppy instance and its API token (Settings, Integrations, API Token).</disclaimer>
         <platform>all</platform>
         <license>GPL-3.0-or-later</license>

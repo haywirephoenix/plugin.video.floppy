@@ -56,11 +56,11 @@ msgid "Play items with"
 msgstr ""
 
 msgctxt "#30202"
-msgid "TMDb Helper"
+msgid "None"
 msgstr ""
 
 msgctxt "#30203"
-msgid "Custom player URL"
+msgid "Plugin path"
 msgstr ""
 
 msgctxt "#30204"
@@ -79,12 +79,32 @@ msgctxt "#30207"
 msgid "Open its seasons (Floppy watched state)"
 msgstr ""
 
-msgctxt "#30217"
-msgid "Open its seasons in TMDb Helper"
-msgstr ""
-
 msgctxt "#30208"
 msgid "Play the next episode"
+msgstr ""
+
+msgctxt "#30222"
+msgid "Custom URL"
+msgstr ""
+
+msgctxt "#30223"
+msgid "Movie path"
+msgstr ""
+
+msgctxt "#30224"
+msgid "Episode path"
+msgstr ""
+
+msgctxt "#30225"
+msgid "Browse for movie path..."
+msgstr ""
+
+msgctxt "#30226"
+msgid "Browse for episode path..."
+msgstr ""
+
+msgctxt "#30227"
+msgid "A plugin path from any video add-on. Floppy adds the item's ids to it (tmdb_id, imdb_id, tvdb_id, season, episode, title, year), replacing any already there. {tmdb}-style placeholders also work."
 msgstr ""
 
 msgctxt "#30209"

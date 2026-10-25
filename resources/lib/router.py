@@ -532,6 +532,10 @@ class Router:
         if not model.playable(entry):
             common.notify("No TMDb, IMDb or TVDb id for this item")
             return
+        url = listing.player_url(entry)
+        if not url:
+            common.notify("Choose a player in Floppy settings > Playback")
+            return
         resume = 0 if p.get("noresume") == "1" else int(float(p.get("resume") or 0))
         if not resume and p.get("noresume") != "1" and common.setting_int("resume_mode", 1) != 0:
             resume = self._lookup_resume(entry)
@@ -546,7 +550,6 @@ class Router:
             "resume": resume,
             "set_at": int(time.time()),
         })
-        url = listing.player_url(entry)
         common.log("Handing playback to {}".format(url))
         xbmc.executebuiltin('PlayMedia("{}")'.format(url))
 
@@ -740,6 +743,10 @@ class Router:
     
     def settings(self):
         common.addon().openSettings()
+
+    def pick_play_path(self):
+        from . import pathpicker
+        pathpicker.pick(self.params.get("kind", "movie"))
 
     def noop(self):
         if self.params.get("reason") == "no_tmdb":

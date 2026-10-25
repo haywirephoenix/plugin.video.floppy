@@ -2,7 +2,7 @@
 
 A Kodi add-on for your self-hosted [Floppy](https://github.com/dannyvfilms/Floppy) tracker. It turns your Floppy library into lists and widgets, browses shows with Floppy's own watched state, searches through Floppy, and can send your watch history and resume positions straight to Floppy, with no Trakt and no separate scrobbler.
 
-Works standalone or as a widget source for any skin that supports custom widgets. Playback goes through TMDb Helper's players, or any player add-on you point it at.
+Works standalone or as a widget source for any skin that supports custom widgets. Playback goes through any player add-on you point it at.
 
 Needs Kodi 20 (Nexus) or newer and a Floppy instance with its API token. Built against Floppy's API (October 2026 `latest`).
 
@@ -46,8 +46,7 @@ The add-on's main menu:
 
 Selecting a **show** opens its seasons and episodes, built from Floppy, with Floppy's watched ticks, resume bars and air dates. Selecting an **episode or movie** plays it. You can change what a show does in Playback → "When a TV show is selected":
 - open its seasons in the Floppy view (default);
-- play its next episode;
-- open its seasons in TMDb Helper.
+- play its next episode.
 
 ## Widgets
 
@@ -168,8 +167,11 @@ Playback started from this add-on is identified exactly by its TMDb id. Playback
 
 ## Playback
 
-- **TMDb Helper** (default): movies and episodes use `plugin://plugin.video.themoviedb.helper/?info=play...`, so your existing TMDb Helper players are used. TMDb Helper is only used to play; lists, watched state and actions all come from Floppy.
-- **Custom player URL**: templates with `{tmdb} {imdb} {tvdb} {season} {episode} {title} {year}`.
+Floppy needs no other add-on. Choose how movies and episodes play in Playback → "Play items with":
+
+- **None** (default): selecting a movie or episode shows a reminder to pick a player. Lists, watched state and actions still work.
+- **Plugin path**: pick a **Movie path** and an **Episode path** with the Browse buttons, which walk your video add-ons' folders. Floppy adds the item's ids to the path's query (`tmdb_id`, `imdb_id`, `tvdb_id`, `season`, `episode`, `title`, `year`). If the path already has one of these keys (`tmdb_id`/`tmdb`, `imdb_id`/`imdb`, `tvdb_id`/`tvdb`, `season`, `episode`, `title`, `year`), Floppy replaces its value. A path with `{tmdb}`-style placeholders is filled in as written.
+- **Custom URL**: movie and episode URL templates with `{tmdb} {imdb} {tvdb} {season} {episode} {title} {year}`.
 
 ## Context menu
 

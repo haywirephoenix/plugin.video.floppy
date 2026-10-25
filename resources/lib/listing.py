@@ -1,19 +1,16 @@
 """Build Kodi ListItems from entries and decide where each item points."""
 
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
 
 import xbmc
 import xbmcgui
 
 from . import common, model, tmdb
 
-TMDBH = "plugin://plugin.video.themoviedb.helper/"
+PLAYBACK_NONE, PLAYBACK_PLUGIN, PLAYBACK_CUSTOM = 0, 1, 2
 
 
 # -- where things go ----------------------------------------------------------
-
-def tmdbh_seasons_url(tmdb_id):
-    return TMDBH + "?" + urlencode({"info": "seasons", "tmdb_type": "tv", "tmdb_id": tmdb_id})
 
 def seasons_url(tmdb_id, title="", lmt=None):
     return common.plugin_url(action="seasons", tmdb=tmdb_id, show=title, lmt=lmt)
@@ -26,38 +23,13 @@ def episodes_url(tmdb_id, season, title="", poster="", lmt=None):
 #     return common.plugin_url(action="episodes", tmdb=tmdb_id, season=season, show=title, poster=poster)
 
 
-def tmdbh_play_url(entry):
-    """TMDb Helper player URL for a movie or episode entry."""
-    if entry["kind"] == "movie":
-        params = {"info": "play", "tmdb_type": "movie"}
-    else:
-        params = {
-            "info": "play",
-            "tmdb_type": "tv",
-            "season": entry.get("season"),
-            "episode": entry.get("episode"),
-        }
-    if entry.get("tmdb"):
-        params["tmdb_id"] = entry["tmdb"]
-    elif entry.get("imdb"):
-        params["imdb_id"] = entry["imdb"]
-    elif entry.get("tvdb"):
-        params["tvdb_id"] = entry["tvdb"]
-    return TMDBH + "?" + urlencode(params)
-
-
 class _SafeDict(dict):
     def __missing__(self, key):
         return ""
 
 
-def custom_play_url(entry):
-    template = common.setting(
-        "movie_template" if entry["kind"] == "movie" else "episode_template"
-    )
-    if not template:
-        return tmdbh_play_url(entry)
-    values = _SafeDict(
+def _play_values(entry):
+    return _SafeDict(
         tmdb=entry.get("tmdb") or "",
         imdb=entry.get("imdb") or "",
         tvdb=entry.get("tvdb") or "",
@@ -66,13 +38,60 @@ def custom_play_url(entry):
         title=entry.get("show_title") or entry.get("title") or "",
         year=entry.get("year") or "",
     )
-    return template.format_map(values)
+
+
+def custom_play_url(entry):
+    template = common.setting(
+        "movie_template" if entry["kind"] == "movie" else "episode_template"
+    )
+    return template.format_map(_play_values(entry)) if template else ""
+
+
+# Query keys a picked plugin path may already use for each value; the first is added when none is.
+_PATH_KEYS = (
+    ("tmdb", ("tmdb_id", "tmdb", "tmdbid")),
+    ("imdb", ("imdb_id", "imdb", "imdbnumber")),
+    ("tvdb", ("tvdb_id", "tvdb", "tvdbid")),
+    ("season", ("season",)),
+    ("episode", ("episode",)),
+    ("title", ("title",)),
+    ("year", ("year",)),
+)
+
+
+def plugin_path_url(entry):
+    """The picked plugin path with this item's ids filled in or added to its query."""
+    path = common.setting(
+        "movie_plugin_path" if entry["kind"] == "movie" else "episode_plugin_path"
+    )
+    if not path:
+        return ""
+    values = _play_values(entry)
+    if "{" in path:
+        return path.format_map(values)
+    base, _, query = path.partition("?")
+    params = parse_qsl(query, keep_blank_values=True)
+    present = {k.lower() for k, _ in params}
+    replace = {}
+    for field, keys in _PATH_KEYS:
+        for key in keys:
+            replace[key] = field
+    params = [(k, values[replace[k.lower()]] if k.lower() in replace else v) for k, v in params]
+    for field, keys in _PATH_KEYS:
+        if values[field] != "" and not present.intersection(keys):
+            params.append((keys[0], values[field]))
+    params = [(k, v) for k, v in params if v != ""]
+    return base + "?" + urlencode(params) if params else base
 
 
 def player_url(entry):
-    if common.setting_int("player", 0) == 1:
+    """Where to send a movie or episode, or "" when no player is set up."""
+    mode = common.setting_int("playback", PLAYBACK_NONE)
+    if mode == PLAYBACK_PLUGIN:
+        return plugin_path_url(entry)
+    if mode == PLAYBACK_CUSTOM:
         return custom_play_url(entry)
-    return tmdbh_play_url(entry)
+    return ""
 
 
 def play_route(entry):
@@ -106,8 +125,6 @@ def target(entry):
                            season=entry["next_season"], episode=entry["next_episode"])
             return play_route(episode), False
         if entry.get("tmdb"):
-            if action == 2:
-                return tmdbh_seasons_url(entry["tmdb"]), True
             return seasons_url(entry["tmdb"], entry.get("title", ""), entry.get("lmt")), True
         return common.plugin_url(action="noop", reason="no_tmdb"), False
     return play_route(entry), False
@@ -260,10 +277,11 @@ def build(entry, in_resume_list=False):
         ids = {k: v for k, v in (("tmdb", entry.get("tmdb")),
                                   ("imdb", entry.get("imdb") or extra.get("imdb")),
                                   ("tvdb", entry.get("tvdb") or extra.get("tvdb"))) if v}
+        # Kodi derives IMDBNumber from the default unique id, so imdb leads when known.
+        # No setIMDBNumber: it overwrites whichever id is the default.
         if ids:
-            tag.setUniqueIDs(ids, "tmdb" if ids.get("tmdb") else next(iter(ids)))
-        if entry.get("imdb") or extra.get("imdb"):
-            tag.setIMDBNumber(entry.get("imdb") or extra.get("imdb"))
+            default = "imdb" if ids.get("imdb") else "tmdb" if ids.get("tmdb") else next(iter(ids))
+            tag.setUniqueIDs(ids, default)
 
     # -- properties -------------------------------------------------------------
     if entry.get("tmdb"):
