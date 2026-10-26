@@ -25,6 +25,8 @@ PROP_CHANGED = "floppy.changed_at"
 # What is about to play, set just before playback by Floppy's play route or by a skin
 # (floppy.play.kind, floppy.play.tmdb, ...); the service reads it when the video starts.
 PLAY_PREFIX = "floppy.play."
+# Set by skin.ultra while it plays a trailer behind Home: that playback is not tracked.
+PROP_BG_TRAILER = "ultra.bg.trailer"
 PLAY_FIELDS = ("kind", "tmdb", "imdb", "tvdb", "season", "episode", "title", "resume")
 
 # A plugin run lasts well under a second, so it reads each setting once (see freeze_settings).
@@ -103,6 +105,11 @@ def home_property(name, value=None):
 
 def clear_home_property(name):
     xbmcgui.Window(HOME).clearProperty(name)
+
+
+def background_trailer():
+    """True while a skin's background trailer is starting, playing or stopping."""
+    return bool(home_property(PROP_BG_TRAILER))
 
 
 def read_play_handoff():

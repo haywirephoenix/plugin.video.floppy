@@ -173,6 +173,11 @@ class FloppyPlayer(xbmc.Player):
     def onAVStarted(self):
         if not self.isPlayingVideo():
             return
+        if common.background_trailer():
+            # Not tracked, and a pending floppy.play.* hand-off stays for the real video.
+            with self._lock:
+                self.current = None
+            return
         playing = self._from_handoff() or self._from_player()
         with self._lock:
             self.current = playing
@@ -192,9 +197,13 @@ class FloppyPlayer(xbmc.Player):
         self._save(final=False)
 
     def onPlayBackStopped(self):
+        if common.background_trailer():
+            return
         self._save(final=True)
 
     def onPlayBackEnded(self):
+        if common.background_trailer():
+            return
         with self._lock:
             if self.current and self.current.total:
                 self.current.position = self.current.total
@@ -267,6 +276,8 @@ class FloppyPlayer(xbmc.Player):
 
     def tick(self):
         """Called about once a second by the service loop."""
+        if common.background_trailer():
+            return
         self._watch_handoff()
         with self._lock:
             playing = self.current

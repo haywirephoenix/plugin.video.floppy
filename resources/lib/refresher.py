@@ -42,7 +42,7 @@ class Refresher:
 
     def cycle(self):
         # Leave the network to the video while one is playing; finishing it marks data changed.
-        if xbmc.getCondVisibility("Player.HasVideo"):
+        if xbmc.getCondVisibility("Player.HasVideo") or common.background_trailer():
             return
         changed = self._refresh_lists()
         if tmdb.fetch_pending(self._stop):
