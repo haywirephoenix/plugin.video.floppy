@@ -521,6 +521,9 @@ class Router:
             "title": p.get("title", ""),
             "show_title": p.get("show", ""),
             "year": p.get("year", ""),
+            "premiered": p.get("premiered", ""),
+            "poster": p.get("poster", ""),
+            "thumb": p.get("thumb", ""),
         }
         if entry["kind"] == "episode":
             try:
@@ -550,7 +553,9 @@ class Router:
             resume=resume,
         )
         common.log("Handing playback to {}".format(url))
-        xbmc.executebuiltin('PlayMedia("{}")'.format(url))
+        # Player files marked is_resolvable=false start the video themselves.
+        builtin = "PlayMedia" if listing.player_resolvable(entry) else "RunPlugin"
+        xbmc.executebuiltin('{}("{}")'.format(builtin, url))
 
     # -- actions --------------------------------------------------------------
 

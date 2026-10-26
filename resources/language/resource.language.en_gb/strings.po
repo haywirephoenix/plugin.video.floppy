@@ -104,7 +104,19 @@ msgid "Browse for episode path..."
 msgstr ""
 
 msgctxt "#30227"
-msgid "A plugin path from any video add-on. Floppy adds the item's ids to it (tmdb_id, imdb_id, tvdb_id, season, episode, title, year), replacing any already there. {tmdb}-style placeholders also work."
+msgid "A plugin path from any video add-on, or a TMDb Helper player file. Browsed paths have their ids and titles turned into placeholders such as {tmdb} and {title_url}, which are filled in when playing. A path without placeholders gets the ids added to it."
+msgstr ""
+
+msgctxt "#30228"
+msgid "Movie path starts the video itself"
+msgstr ""
+
+msgctxt "#30229"
+msgid "Episode path starts the video itself"
+msgstr ""
+
+msgctxt "#30230"
+msgid "On for paths that play on their own instead of returning a video to Kodi (player files with is_resolvable false); Floppy then runs them with RunPlugin. Set when you pick a path."
 msgstr ""
 
 msgctxt "#30209"
@@ -132,7 +144,7 @@ msgid "While playing, save the position every (seconds)"
 msgstr ""
 
 msgctxt "#30215"
-msgid "Placeholders: {tmdb} {imdb} {tvdb} {season} {episode} {title} {year}"
+msgid "Placeholders: {tmdb} {imdb} {tvdb} {season} {episode} {title} (show title for episodes) {eptitle} {year} {premiered} {poster} {name}. Add _url, _url+, _+, _-, _escaped or _escaped+ to encode one, e.g. {title_url}."
 msgstr ""
 
 msgctxt "#30216"

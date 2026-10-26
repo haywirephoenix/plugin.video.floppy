@@ -89,6 +89,16 @@
                         <close>true</close>
                     </control>
                 </setting>
+                <setting id="movie_plugin_runplugin" type="boolean" label="30228" help="30230">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="playback">1</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="episode_plugin_path" type="string" label="30224" help="30227">
                     <level>0</level>
                     <default></default>
@@ -118,6 +128,16 @@
                     <control type="button" format="action">
                         <close>true</close>
                     </control>
+                </setting>
+                <setting id="episode_plugin_runplugin" type="boolean" label="30229" help="30230">
+                    <level>0</level>
+                    <default>false</default>
+                    <dependencies>
+                        <dependency type="visible">
+                            <condition operator="is" setting="playback">1</condition>
+                        </dependency>
+                    </dependencies>
+                    <control type="toggle"/>
                 </setting>
                 <setting id="movie_template" type="string" label="30204" help="30215">
                     <level>0</level>

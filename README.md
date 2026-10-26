@@ -170,8 +170,8 @@ Playback started from this add-on is identified exactly by its TMDb id. Playback
 Floppy needs no other add-on. Choose how movies and episodes play in Playback → "Play items with":
 
 - **None** (default): selecting a movie or episode shows a reminder to pick a player. Lists, watched state and actions still work.
-- **Plugin path**: pick a **Movie path** and an **Episode path** with the Browse buttons, which walk your video add-ons' folders. Floppy adds the item's ids to the path's query (`tmdb_id`, `imdb_id`, `tvdb_id`, `season`, `episode`, `title`, `year`). If the path already has one of these keys (`tmdb_id`/`tmdb`, `imdb_id`/`imdb`, `tvdb_id`/`tvdb`, `season`, `episode`, `title`, `year`), Floppy replaces its value. A path with `{tmdb}`-style placeholders is filled in as written.
-- **Custom URL**: movie and episode URL templates with `{tmdb} {imdb} {tvdb} {season} {episode} {title} {year}`.
+- **Plugin path**: pick a **Movie path** and an **Episode path** with the Browse buttons. "Player files..." lists TMDb Helper-format player files (`play_movie` / `play_episode`) for installed add-ons, read from TMDb Helper's and the Bingie helper's players folders (neither add-on is needed). Browsing walks your video add-ons' folders, and an add-on's player files show at the top of its folder. A browsed path has its ids and titles turned into placeholders before it is saved (`tmdb_id=27205` becomes `tmdb_id={tmdb}`, `title=…` becomes `title={title_url}`). Placeholders are filled as in player files: `{tmdb} {imdb} {tvdb} {season} {episode} {year} {premiered} {poster} {thumbnail} {fanart} {name} {id}`, `{title}` (the show's title for episodes), `{showname}`, `{eptitle}`, plus TMDb Helper's aliases. Add `_url`, `_url+`, `_+`, `_-`, `_escaped` or `_escaped+` to encode one. A path without placeholders gets the ids added to its query. Paths that start the video themselves (player files with `"is_resolvable": "false"`) run with RunPlugin instead of PlayMedia. The toggle under each path shows this and is set when you pick a path.
+- **Custom URL**: movie and episode URL templates, with the same placeholders and encodings as plugin paths.
 
 ## Context menu
 

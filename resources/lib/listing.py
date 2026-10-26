@@ -1,11 +1,9 @@
 """Build Kodi ListItems from entries and decide where each item points."""
 
-from urllib.parse import parse_qsl, urlencode
-
 import xbmc
 import xbmcgui
 
-from . import common, model, tmdb
+from . import common, model, playpaths, tmdb
 
 PLAYBACK_NONE, PLAYBACK_PLUGIN, PLAYBACK_CUSTOM = 0, 1, 2
 
@@ -23,65 +21,19 @@ def episodes_url(tmdb_id, season, title="", poster="", lmt=None):
 #     return common.plugin_url(action="episodes", tmdb=tmdb_id, season=season, show=title, poster=poster)
 
 
-class _SafeDict(dict):
-    def __missing__(self, key):
-        return ""
-
-
-def _play_values(entry):
-    return _SafeDict(
-        tmdb=entry.get("tmdb") or "",
-        imdb=entry.get("imdb") or "",
-        tvdb=entry.get("tvdb") or "",
-        season=entry.get("season") if entry.get("season") is not None else "",
-        episode=entry.get("episode") if entry.get("episode") is not None else "",
-        title=entry.get("show_title") or entry.get("title") or "",
-        year=entry.get("year") or "",
-    )
-
-
 def custom_play_url(entry):
     template = common.setting(
         "movie_template" if entry["kind"] == "movie" else "episode_template"
     )
-    return template.format_map(_play_values(entry)) if template else ""
-
-
-# Query keys a picked plugin path may already use for each value; the first is added when none is.
-_PATH_KEYS = (
-    ("tmdb", ("tmdb_id", "tmdb", "tmdbid")),
-    ("imdb", ("imdb_id", "imdb", "imdbnumber")),
-    ("tvdb", ("tvdb_id", "tvdb", "tvdbid")),
-    ("season", ("season",)),
-    ("episode", ("episode",)),
-    ("title", ("title",)),
-    ("year", ("year",)),
-)
+    return playpaths.fill_placeholders(template, playpaths.values(entry)) if template else ""
 
 
 def plugin_path_url(entry):
-    """The picked plugin path with this item's ids filled in or added to its query."""
+    """The picked plugin path with this item's values filled in (see playpaths.fill)."""
     path = common.setting(
         "movie_plugin_path" if entry["kind"] == "movie" else "episode_plugin_path"
     )
-    if not path:
-        return ""
-    values = _play_values(entry)
-    if "{" in path:
-        return path.format_map(values)
-    base, _, query = path.partition("?")
-    params = parse_qsl(query, keep_blank_values=True)
-    present = {k.lower() for k, _ in params}
-    replace = {}
-    for field, keys in _PATH_KEYS:
-        for key in keys:
-            replace[key] = field
-    params = [(k, values[replace[k.lower()]] if k.lower() in replace else v) for k, v in params]
-    for field, keys in _PATH_KEYS:
-        if values[field] != "" and not present.intersection(keys):
-            params.append((keys[0], values[field]))
-    params = [(k, v) for k, v in params if v != ""]
-    return base + "?" + urlencode(params) if params else base
+    return playpaths.fill(path, playpaths.values(entry)) if path else ""
 
 
 def player_url(entry):
@@ -92,6 +44,14 @@ def player_url(entry):
     if mode == PLAYBACK_CUSTOM:
         return custom_play_url(entry)
     return ""
+
+
+def player_resolvable(entry):
+    """False when the picked plugin path starts the video itself (RunPlugin, not PlayMedia)."""
+    if common.setting_int("playback", PLAYBACK_NONE) != PLAYBACK_PLUGIN:
+        return True
+    return not common.setting_bool(
+        "movie_plugin_runplugin" if entry["kind"] == "movie" else "episode_plugin_runplugin", False)
 
 
 def play_route(entry):
@@ -107,6 +67,9 @@ def play_route(entry):
         title=entry.get("title"),
         show=entry.get("show_title"),
         year=entry.get("year"),
+        premiered=entry.get("premiered") or None,
+        poster=entry.get("poster") or None,
+        thumb=entry.get("thumb") or None,
         resume=entry.get("resume_pos") or None,
         total=entry.get("resume_total") or None,
     )
