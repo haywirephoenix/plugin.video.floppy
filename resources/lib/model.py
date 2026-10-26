@@ -117,6 +117,7 @@ def from_media(result, next_up=False):
             {
                 "kind": "episode",
                 "show_title": entry["title"],
+                "show_imdb": entry["imdb"],  # this row is the show, so its ids are the show's
                 "title": nxt.get("title") or "Episode {}".format(nxt.get("episode_number")),
                 "season": nxt.get("season_number"),
                 "episode": nxt.get("episode_number"),

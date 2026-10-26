@@ -267,6 +267,9 @@ def build(entry, in_resume_list=False):
             li.setProperty("tvshow.tmdb_id", entry["tmdb"])
         if extra.get("tvdb") or entry.get("tvdb"):
             li.setProperty("tvshow.tvdb_id", extra.get("tvdb") or entry.get("tvdb"))
+        # Only show-level sources: an episode entry's own imdb may be the episode's.
+        if extra.get("imdb") or entry.get("show_imdb"):
+            li.setProperty("tvshow.imdb_id", extra.get("imdb") or entry.get("show_imdb"))
     else:
         if kind == "tvshow":
             tag.setTvShowTitle(entry.get("title") or "")
