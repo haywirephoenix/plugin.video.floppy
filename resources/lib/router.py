@@ -524,6 +524,7 @@ class Router:
             "premiered": p.get("premiered", ""),
             "poster": p.get("poster", ""),
             "thumb": p.get("thumb", ""),
+            "show_imdb": p.get("show_imdb", ""),
         }
         if entry["kind"] == "episode":
             try:

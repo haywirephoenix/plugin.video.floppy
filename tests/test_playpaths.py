@@ -28,7 +28,8 @@ DEXHUB = {
 MOVIE = {"kind": "movie", "tmdb": "27205", "imdb": "tt1375666", "title": "Inception: The Dream",
          "year": 2010, "poster": "https://image.tmdb.org/t/p/w500/a b.jpg"}
 EPISODE = {"kind": "episode", "tmdb": "1396", "tvdb": "81189", "title": "Cat's in the Bag...",
-           "show_title": "Breaking Bad", "season": 1, "episode": 2, "year": 2008}
+           "show_title": "Breaking Bad", "season": 1, "episode": 2, "year": 2008,
+           "imdb": "tt1054724", "show_imdb": "tt0903747"}
 
 
 class FillTest(unittest.TestCase):
@@ -46,7 +47,8 @@ class FillTest(unittest.TestCase):
         self.assertIn("showname={showname_url}", template)
         url = playpaths.fill(template, playpaths.values(EPISODE))
         self.assertIn("showname=Breaking%20Bad&ar_showname=&title=Cat%27s%20in%20the%20Bag...", url)
-        self.assertIn("&season=1&episode=2&tvdb_id=81189&tmdb_id=1396&imdb_id=&", url)
+        # An episode's {imdb} is the show's, as in TMDb Helper.
+        self.assertIn("&season=1&episode=2&tvdb_id=81189&tmdb_id=1396&imdb_id=tt0903747&", url)
 
     def test_encodings_and_aliases(self):
         vals = playpaths.values(EPISODE)
@@ -59,7 +61,7 @@ class FillTest(unittest.TestCase):
 
     def test_path_without_placeholders_gets_ids(self):
         got = playpaths.fill("plugin://p/play?tmdb=1&mode=x", playpaths.values(EPISODE))
-        self.assertEqual(got, "plugin://p/play?tmdb=1396&mode=x&tvdb_id=81189&season=1&episode=2"
+        self.assertEqual(got, "plugin://p/play?tmdb=1396&mode=x&imdb_id=tt0903747&tvdb_id=81189&season=1&episode=2"
                               "&title=Breaking+Bad&year=2008")
 
 

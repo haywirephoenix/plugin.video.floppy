@@ -50,7 +50,8 @@ PLAYER_FOLDERS = (
 
 def values(entry):
     """Every value a path can use, as text. title is the show's for an episode (Floppy's own
-    meaning); eptitle is the episode's; id is TMDb Helper's (the TMDb id)."""
+    meaning); eptitle is the episode's; id is TMDb Helper's (the TMDb id); imdb is the show's
+    for an episode, as in TMDb Helper."""
     def text(v):
         return "" if v is None else str(v)
 
@@ -68,7 +69,7 @@ def values(entry):
     return {
         "tmdb": text(entry.get("tmdb")),
         "id": text(entry.get("tmdb")),
-        "imdb": text(entry.get("imdb")),
+        "imdb": text(entry.get("show_imdb") if episode else entry.get("imdb")),
         "tvdb": text(entry.get("tvdb")),
         "season": text(entry.get("season")),
         "episode": text(entry.get("episode")),

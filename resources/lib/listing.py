@@ -54,6 +54,17 @@ def player_resolvable(entry):
         "movie_plugin_runplugin" if entry["kind"] == "movie" else "episode_plugin_runplugin", False)
 
 
+def _show_imdb(entry):
+    """An episode's show IMDb id, from show-level data only (the episode's own imdb may be its own)."""
+    if entry["kind"] != "episode":
+        return None
+    if entry.get("show_imdb"):
+        return entry["show_imdb"]
+    if not entry.get("tmdb"):
+        return None
+    return tmdb.details("tv", entry["tmdb"], fetch=False).get("imdb") or None
+
+
 def play_route(entry):
     """Our own play route; it records what is about to play, then hands off."""
     return common.plugin_url(
@@ -70,6 +81,7 @@ def play_route(entry):
         premiered=entry.get("premiered") or None,
         poster=entry.get("poster") or None,
         thumb=entry.get("thumb") or None,
+        show_imdb=_show_imdb(entry),
         resume=entry.get("resume_pos") or None,
         total=entry.get("resume_total") or None,
     )
@@ -85,6 +97,7 @@ def target(entry):
             and entry.get("next_episode") is not None
         ):
             episode = dict(entry, kind="episode", show_title=entry.get("title"),
+                           show_imdb=entry.get("imdb"),
                            season=entry["next_season"], episode=entry["next_episode"])
             return play_route(episode), False
         if entry.get("tmdb"):
