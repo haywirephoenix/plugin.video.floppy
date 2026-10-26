@@ -13,11 +13,11 @@ import uuid
 import xbmc
 import xbmcgui
 
-from . import cache, common
+from . import cache, common, model
 from .api import FloppyAPI, FloppyError
 from .refresher import Refresher
 
-PENDING_MAX_AGE = 180  # seconds between pressing play and the video starting
+PENDING_MAX_AGE = 180  # seconds between the floppy.play.* hand-off and the video starting
 MIN_POSITION = 60  # do not save accidental starts
 PROP_TMDBHELPER_PLAYING = "TMDbHelper.PlayerInfoString"  # set by TMDb Helper's player
 
@@ -35,13 +35,13 @@ def _fmt(seconds):
 class Playing:
     """What is playing, expressed in Floppy's playback/progress vocabulary."""
 
-    def __init__(self, kind, ids, season=None, episode=None, title="", resume=0):
+    def __init__(self, kind, ids, season=None, episode=None, title="", resume=None):
         self.kind = kind
         self.ids = {k: str(v) for k, v in ids.items() if v}
         self.season = season
         self.episode = episode
         self.title = title
-        self.resume = resume
+        self.resume = resume  # seconds; None = look it up in Floppy when the video starts
         self.position = 0.0
         self.total = 0.0
         self.last_saved = time.time()
@@ -66,6 +66,7 @@ class FloppyPlayer(xbmc.Player):
     def __init__(self):
         super().__init__()
         self.current = None
+        self._handoff_seen = (None, 0.0)  # (floppy.play.* values, when first seen)
         self._lock = threading.Lock()
         self._queue = queue.Queue()
         self._thread = threading.Thread(target=self._worker, daemon=True)
@@ -78,19 +79,43 @@ class FloppyPlayer(xbmc.Player):
 
     # -- identify what started ---------------------------------------------------
 
-    def _from_pending(self):
-        pending = common.get_json_property(common.PROP_PENDING_PLAY)
-        common.clear_home_property(common.PROP_PENDING_PLAY)
-        if not pending or time.time() - pending.get("set_at", 0) > PENDING_MAX_AGE:
+    def _watch_handoff(self):
+        """Note when floppy.play.* appears, and drop it once too old to belong to a new video."""
+        values = common.read_play_handoff()
+        seen, since = self._handoff_seen
+        if not values:
+            self._handoff_seen = (None, 0.0)
+        elif values != seen:
+            self._handoff_seen = (values, time.time())
+        elif time.time() - since > PENDING_MAX_AGE:
+            common.log("Dropping a play hand-off that never started: {}".format(values))
+            common.clear_play_handoff()
+            self._handoff_seen = (None, 0.0)
+
+    def _from_handoff(self):
+        values = common.read_play_handoff()
+        common.clear_play_handoff()
+        seen, since = self._handoff_seen
+        self._handoff_seen = (None, 0.0)
+        if not values or (values == seen and time.time() - since > PENDING_MAX_AGE):
             return None
-        kind = pending.get("kind")
+        kind = values.get("kind")
         if kind not in ("movie", "episode"):
             return None
-        ids = {"tmdb": pending.get("tmdb"), "imdb": pending.get("imdb"), "tvdb": pending.get("tvdb")}
-        if kind == "episode" and (pending.get("season") is None or pending.get("episode") is None):
+        ids = {"tmdb": values.get("tmdb"), "imdb": values.get("imdb"), "tvdb": values.get("tvdb")}
+        if not any(ids.values()):
             return None
-        return Playing(kind, ids, pending.get("season"), pending.get("episode"),
-                       pending.get("title") or "", int(pending.get("resume") or 0))
+        season = episode = None
+        if kind == "episode":
+            try:
+                season, episode = int(values["season"]), int(values["episode"])
+            except (KeyError, ValueError):
+                return None
+        try:
+            resume = int(float(values["resume"])) if "resume" in values else None
+        except ValueError:
+            resume = None
+        return Playing(kind, ids, season, episode, values.get("title") or "", resume)
 
     @staticmethod
     def _from_tmdbhelper(kind, season=None, episode=None, tag_ids=None):
@@ -148,7 +173,7 @@ class FloppyPlayer(xbmc.Player):
     def onAVStarted(self):
         if not self.isPlayingVideo():
             return
-        playing = self._from_pending() or self._from_player()
+        playing = self._from_handoff() or self._from_player()
         with self._lock:
             self.current = playing
         if not playing:
@@ -181,9 +206,40 @@ class FloppyPlayer(xbmc.Player):
 
     # -- resume -------------------------------------------------------------------
 
+    @staticmethod
+    def _find_resume(playing):
+        """Floppy's saved position for what is playing, matched by its ids."""
+        api = FloppyAPI()
+        if not api.configured:
+            return 0
+        media_type = "movie" if playing.kind == "movie" else "episode"
+        try:
+            payload = api.playback_progress([media_type], completed=False, limit=100)
+        except FloppyError:
+            return 0
+        # Episode rows carry the show's ids, so only show-level ids are compared for them.
+        keys = ("tmdb", "imdb") if playing.kind == "movie" else ("tmdb", "tvdb")
+        for row in (payload or {}).get("results") or []:
+            candidate = model.from_progress(row)
+            if not candidate or not any(
+                playing.ids.get(k) and candidate.get(k) == playing.ids[k] for k in keys
+            ):
+                continue
+            if playing.kind == "episode" and (
+                candidate.get("season") != playing.season
+                or candidate.get("episode") != playing.episode
+            ):
+                continue
+            return int(candidate.get("resume_pos") or 0)
+        return 0
+
     def _maybe_resume(self, playing):
         mode = common.setting_int("resume_mode", 1)
-        if mode == 0 or playing.resume < MIN_POSITION:
+        if mode == 0:
+            return
+        if playing.resume is None:
+            playing.resume = self._find_resume(playing)
+        if playing.resume < MIN_POSITION:
             return
         # Give the player add-on a moment; if it already resumed, leave it alone.
         xbmc.sleep(1000)
@@ -211,6 +267,7 @@ class FloppyPlayer(xbmc.Player):
 
     def tick(self):
         """Called about once a second by the service loop."""
+        self._watch_handoff()
         with self._lock:
             playing = self.current
         if not playing or not self.isPlayingVideo():

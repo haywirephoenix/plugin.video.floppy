@@ -20,8 +20,12 @@ PROFILE_DIR = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
 # Home window properties shared between the plugin and the service.
 HOME = 10000
 PROP_RELOAD = "floppy.widget_reload"
-PROP_PENDING_PLAY = "floppy.pending_play"
 PROP_CHANGED = "floppy.changed_at"
+
+# What is about to play, set just before playback by Floppy's play route or by a skin
+# (floppy.play.kind, floppy.play.tmdb, ...); the service reads it when the video starts.
+PLAY_PREFIX = "floppy.play."
+PLAY_FIELDS = ("kind", "tmdb", "imdb", "tvdb", "season", "episode", "title", "resume")
 
 # A plugin run lasts well under a second, so it reads each setting once (see freeze_settings).
 _frozen = None
@@ -99,6 +103,27 @@ def home_property(name, value=None):
 
 def clear_home_property(name):
     xbmcgui.Window(HOME).clearProperty(name)
+
+
+def read_play_handoff():
+    """The floppy.play.* properties that are set, as {field: value}."""
+    window = xbmcgui.Window(HOME)
+    values = {f: window.getProperty(PLAY_PREFIX + f) for f in PLAY_FIELDS}
+    return {f: v for f, v in values.items() if v}
+
+
+def set_play_handoff(**values):
+    window = xbmcgui.Window(HOME)
+    for field in PLAY_FIELDS:
+        value = values.get(field)
+        if value is None or value == "":
+            window.clearProperty(PLAY_PREFIX + field)
+        else:
+            window.setProperty(PLAY_PREFIX + field, str(value))
+
+
+def clear_play_handoff():
+    set_play_handoff()
 
 
 def set_json_property(name, data):

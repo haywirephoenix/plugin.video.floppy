@@ -536,44 +536,21 @@ class Router:
         if not url:
             common.notify("Choose a player in Floppy settings > Playback")
             return
-        resume = 0 if p.get("noresume") == "1" else int(float(p.get("resume") or 0))
-        if not resume and p.get("noresume") != "1" and common.setting_int("resume_mode", 1) != 0:
-            resume = self._lookup_resume(entry)
-        common.set_json_property(common.PROP_PENDING_PLAY, {
-            "kind": entry["kind"],
-            "tmdb": entry["tmdb"],
-            "imdb": entry["imdb"],
-            "tvdb": entry["tvdb"],
-            "season": entry.get("season"),
-            "episode": entry.get("episode"),
-            "title": entry.get("show_title") or entry["title"],
-            "resume": resume,
-            "set_at": int(time.time()),
-        })
+        # A known position (resume lists) or 0 for "from the start"; left empty, the
+        # service looks the position up when the video starts.
+        resume = "0" if p.get("noresume") == "1" else str(int(float(p.get("resume") or 0)) or "")
+        common.set_play_handoff(
+            kind=entry["kind"],
+            tmdb=entry["tmdb"],
+            imdb=entry["imdb"],
+            tvdb=entry["tvdb"],
+            season=entry.get("season"),
+            episode=entry.get("episode"),
+            title=entry.get("show_title") or entry["title"],
+            resume=resume,
+        )
         common.log("Handing playback to {}".format(url))
         xbmc.executebuiltin('PlayMedia("{}")'.format(url))
-
-    def _lookup_resume(self, entry):
-        """Find a saved Floppy position for an item launched from a non-resume list."""
-        if not entry.get("tmdb"):
-            return 0
-        media_type = "movie" if entry["kind"] == "movie" else "episode"
-        try:
-            payload = self.api.playback_progress([media_type], completed=False, limit=100,
-                                                 ttl=categories._list_ttl())
-        except FloppyError:
-            return 0
-        for row in (payload or {}).get("results") or []:
-            candidate = model.from_progress(row)
-            if not candidate or candidate.get("tmdb") != entry["tmdb"]:
-                continue
-            if media_type == "episode" and (
-                candidate.get("season") != entry.get("season")
-                or candidate.get("episode") != entry.get("episode")
-            ):
-                continue
-            return int(candidate.get("resume_pos") or 0)
-        return 0
 
     # -- actions --------------------------------------------------------------
 
