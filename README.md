@@ -6,7 +6,7 @@ Works standalone or as a widget source for any skin that supports custom widgets
 
 Needs Kodi 20 (Nexus) or newer and a Floppy instance with its API token. Built against Floppy's API (October 2026 `latest`).
 
-[Download Latest Release](https://github.com/haywirephoenix/plugin.video.floppy/releases/latest/download/plugin.video.floppy.zip)
+[Download Latest Release](https://github.com/haywirephoenix/plugin.video.floppy/releases)
 
 ## Features
 
