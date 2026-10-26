@@ -316,6 +316,11 @@
         </category>
         <category id="advanced" label="30500">
             <group id="1">
+                <setting id="auto_refresh" type="boolean" label="30506" help="30507">
+                    <level>1</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="cache_minutes" type="integer" label="30501">
                     <level>1</level>
                     <default>5</default>
@@ -324,6 +329,11 @@
                         <step>1</step>
                         <maximum>120</maximum>
                     </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="auto_refresh">true</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="slider" format="integer">
                         <popup>false</popup>
                     </control>
@@ -336,6 +346,11 @@
                         <step>5</step>
                         <maximum>720</maximum>
                     </constraints>
+                    <dependencies>
+                        <dependency type="enable">
+                            <condition operator="is" setting="auto_refresh">true</condition>
+                        </dependency>
+                    </dependencies>
                     <control type="slider" format="integer">
                         <popup>false</popup>
                     </control>

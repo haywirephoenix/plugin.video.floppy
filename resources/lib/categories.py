@@ -11,11 +11,24 @@ from .api import FloppyError
 MOVIE, TV, MIXED = "movies", "tvshows", "videos"
 
 
+# With automatic refresh off, cached lists count as current until Floppy data changes
+# (see common.mark_data_changed); this only bounds how long one can go unused.
+KEEP_UNTIL_CHANGED = 30 * 24 * 3600
+
+
+def auto_refresh():
+    return common.setting_bool("auto_refresh", False)
+
+
 def _list_ttl():
+    if not auto_refresh():
+        return KEEP_UNTIL_CHANGED
     return max(0, common.setting_int("cache_minutes", 5)) * 60
 
 
 def _discover_ttl():
+    if not auto_refresh():
+        return KEEP_UNTIL_CHANGED
     return max(0, common.setting_int("discover_cache_minutes", 60)) * 60
 
 

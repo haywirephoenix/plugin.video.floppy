@@ -246,3 +246,11 @@ msgstr ""
 msgctxt "#30505"
 msgid "Show widget paths"
 msgstr ""
+
+msgctxt "#30506"
+msgid "Refresh widgets automatically"
+msgstr ""
+
+msgctxt "#30507"
+msgid "Off: lists stay cached until you change something from Kodi (watching, marking watched, watchlist changes), then only those refresh. On: lists are also fetched again after the times below, to pick up changes made outside Kodi."
+msgstr ""
