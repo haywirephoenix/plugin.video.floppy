@@ -11,6 +11,9 @@ IMG = "https://image.tmdb.org/t/p/"
 TTL = 14 * 24 * 3600
 MISS_TTL = 24 * 3600
 SEARCH_TTL = 24 * 3600
+DISCOVER_TTL = 6 * 3600
+# Discover results with fewer votes than this are mostly junk.
+MIN_VOTES = 50
 
 # Errors a lookup can end with; callers treat them all as "no TMDb data".
 # (http.client errors are turned into OSError in _get.)
@@ -282,6 +285,53 @@ def person_credits(person_id):
             if not set(c.get("genre_ids") or []) & {10763, 10767}]
     cast.sort(key=lambda c: c.get("popularity") or 0, reverse=True)
     return cast
+
+
+def genre_ids(tmdb_type):
+    """Map lower-cased English genre name -> id for 'movie' or 'tv', cached."""
+    if not enabled():
+        return {}
+    # English names whatever the display language: callers ask for genres by English name.
+    data = _cached("tmdb:genres:{}".format(tmdb_type), TTL,
+                   lambda: _get("genre/{}/list".format(tmdb_type), {"language": "en-US"}))
+    return {g["name"].lower(): g["id"] for g in (data or {}).get("genres") or []
+            if g.get("name") and g.get("id")}
+
+
+def discover(tmdb_type, genres=(), language="", keywords="", limit=20):
+    """Popular movies or shows with any of ``genres`` (ids), most popular first, cached per page."""
+    if not enabled():
+        return []
+    params = {
+        "language": _language(),
+        "sort_by": "popularity.desc",
+        "vote_count.gte": MIN_VOTES,
+        "include_adult": "false",
+    }
+    if genres:
+        params["with_genres"] = "|".join(str(g) for g in genres)
+    if tmdb_type == "tv":
+        # News and talk shows are tagged Comedy and the like; leave them out unless asked for.
+        skip = [str(g) for g in (10763, 10767) if g not in genres]
+        if skip:
+            params["without_genres"] = ",".join(skip)
+    if language:
+        params["with_original_language"] = language
+    if keywords:
+        params["with_keywords"] = keywords
+    base = "tmdb:discover:{}:{}".format(tmdb_type, urlencode(sorted(params.items())))
+    results = []
+    page = 1
+    while len(results) < limit:
+        query = dict(params, page=page)
+        data = _cached("{}:{}".format(base, page), DISCOVER_TTL,
+                       lambda: _get("discover/{}".format(tmdb_type), query))
+        rows = (data or {}).get("results") or []
+        results.extend(r for r in rows if not r.get("adult"))
+        if not rows or page >= min((data or {}).get("total_pages") or 1, 500):
+            break
+        page += 1
+    return results[:limit]
 
 
 def to_entry(result, media_type):

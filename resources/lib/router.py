@@ -466,6 +466,52 @@ class Router:
                 items.append(listing.folder_item(r.get("name") or "", url, art, known))
         self._finish(items, content="files")
 
+    # -- genres --------------------------------------------------------------
+
+    def genre(self):
+        """Popular TMDb titles in any of ``genres`` (names joined by " / "), for search categories."""
+        in_widget = self.params.get("widget") == "1" or listing.is_widget_context()
+        if not tmdb.enabled():
+            if not in_widget:
+                common.notify("Add a TMDb API key in Artwork settings to browse genres")
+            self._finish([])
+            return
+        media_type = self.params.get("media_type", "both")
+        types = ["movie", "tv"] if media_type == "both" else [media_type]
+        names = [n.strip().lower() for n in (self.params.get("genres") or "").split("/") if n.strip()]
+        language = (self.params.get("language") or "").strip()
+        keywords = (self.params.get("keywords") or "").strip()
+        size = self._page_size()
+
+        queries = {}
+        for kind in types:
+            ids = tmdb.genre_ids(kind)
+            wanted = sorted({ids[n] for n in names if n in ids})
+            # Movie and TV genre names differ: a type with none of the asked genres is skipped.
+            if wanted or (not names and (language or keywords)):
+                queries[kind] = wanted
+
+        results = {}
+
+        def run(kind):
+            results[kind] = tmdb.discover(kind, queries[kind], language, keywords, limit=size)
+
+        threads = [threading.Thread(target=run, args=(kind,)) for kind in queries]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        groups = [[tmdb.to_entry(r, kind) for r in results.get(kind) or []] for kind in types]
+        # Alternate movie / show so neither type buries the other.
+        entries = []
+        for group in itertools.zip_longest(*groups):
+            entries.extend(e for e in group if e)
+        entries = [e for e in model.dedupe(entries) if model.playable(e)][:size]
+
+        content = "movies" if types == ["movie"] else "tvshows" if types == ["tv"] else "videos"
+        self._render_entries(entries, False, content, False, {})
+
     def collection(self):
         entries = [tmdb.to_entry(p, "movie") for p in tmdb.collection_parts(self.params.get("id"))]
         entries.sort(key=lambda e: e.get("premiered") or "9999")
