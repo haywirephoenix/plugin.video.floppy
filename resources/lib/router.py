@@ -288,6 +288,9 @@ class Router:
                 listing.folder_item(label, common.plugin_url(action="discover", media_type=mt), icon)
                 for mt, label, icon in self._DISCOVER_TYPES
             ]
+            items.append(listing.folder_item(
+                "Genres", common.plugin_url(action="genres"), "DefaultGenre.png",
+                "Popular movies and TV shows on TMDb by genre, not just your own library."))
             self._finish(items, content="files")
             return
         if self._need_setup():
@@ -482,6 +485,10 @@ class Router:
         language = (self.params.get("language") or "").strip()
         keywords = (self.params.get("keywords") or "").strip()
         size = self._page_size()
+        page = int(self.params.get("page") or 0)
+        # Pages are cut from one merged list, so each type needs enough for every page so far
+        # (plus one, to tell whether there is a next page). TMDb pages are cached.
+        wanted_count = (page + 1) * size + 1
 
         queries = {}
         for kind in types:
@@ -494,7 +501,7 @@ class Router:
         results = {}
 
         def run(kind):
-            results[kind] = tmdb.discover(kind, queries[kind], language, keywords, limit=size)
+            results[kind] = tmdb.discover(kind, queries[kind], language, keywords, limit=wanted_count)
 
         threads = [threading.Thread(target=run, args=(kind,)) for kind in queries]
         for thread in threads:
@@ -507,10 +514,35 @@ class Router:
         entries = []
         for group in itertools.zip_longest(*groups):
             entries.extend(e for e in group if e)
-        entries = [e for e in model.dedupe(entries) if model.playable(e)][:size]
+        entries = [e for e in model.dedupe(entries) if model.playable(e)]
+        page_entries, has_more = categories._slice(entries, page, size)
 
         content = "movies" if types == ["movie"] else "tvshows" if types == ["tv"] else "videos"
-        self._render_entries(entries, False, content, False, {})
+        next_params = {k: v for k, v in self.params.items() if k != "page"}
+        self._render_entries(page_entries, has_more, content, False, next_params)
+
+    def genres(self):
+        """The genre categories as folders, each opening action=genre."""
+        from . import genres
+
+        if not tmdb.enabled():
+            common.notify("Add a TMDb API key in Artwork settings to browse genres")
+            self._finish([], succeeded=False)
+            return
+        media_type = self.params.get("media_type", "both")
+        types = ["movie", "tv"] if media_type == "both" else [media_type]
+        known = set()
+        for kind in types:
+            known.update(tmdb.genre_ids(kind))
+        icon = "DefaultMovies.png" if media_type == "movie" else "DefaultTVShows.png"             if media_type == "tv" else "DefaultGenre.png"
+        items = []
+        for label, params in genres.CATEGORIES:
+            # Leave out categories none of these types has, like Reality TV under Movies.
+            if params.get("genres") and not any(g.lower() in known for g in params["genres"]):
+                continue
+            url = common.plugin_url(action="genre", media_type=media_type, **genres.genre_params(params))
+            items.append(listing.folder_item(label, url, icon))
+        self._finish(items, content="files")
 
     def collection(self):
         entries = [tmdb.to_entry(p, "movie") for p in tmdb.collection_parts(self.params.get("id"))]

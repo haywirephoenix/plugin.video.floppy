@@ -67,13 +67,14 @@ class GenreTest(unittest.TestCase):
 
     def _capture(self, entries, has_more, content, in_resume, next_params):
         self.entries, self.content = entries, content
+        self.has_more, self.next_params = has_more, next_params
 
     def _finished(self, items, *a, **k):
         self.entries = items
 
-    def run_genre(self, query):
-        r = router.Router(["plugin://plugin.video.floppy/", "1", "?action=genre&widget=1&" + query])
-        r.genre()
+    def run_genre(self, query, action="genre"):
+        r = router.Router(["plugin://plugin.video.floppy/", "1", "?action={}&widget=1&{}".format(action, query)])
+        getattr(r, action)()
         return self.entries
 
     def test_both_alternates_and_limits(self):
@@ -119,6 +120,34 @@ class GenreTest(unittest.TestCase):
         self.fake.calls.clear()
         self.run_genre("limit=30&media_type=movie&genres=Comedy")
         self.assertEqual(self.fake.calls, [])
+
+    def test_next_pages_continue_the_list(self):
+        query = "limit=30&media_type=both&genres=Comedy"
+        first = self.run_genre(query)
+        self.assertTrue(self.has_more)
+        self.assertNotIn("page", self.next_params)
+        second = self.run_genre(query + "&page=1")
+        third = self.run_genre(query + "&page=2")
+        ids = [(e["kind"], e["tmdb"]) for e in first + second + third]
+        self.assertEqual(len(ids), 90)
+        self.assertEqual(len(set(ids)), 90)
+        # The fake has 3 pages of 20 per type (one adult movie dropped): 119 in all.
+        self.run_genre(query + "&page=3")
+        self.assertEqual(len(self.entries), 29)
+        self.assertFalse(self.has_more)
+
+    def test_genres_menu(self):
+        items = self.run_genre("", action="genres")
+        urls = [url for url, _, _ in items]
+        # The fake genre lists have no Documentary, Drama, Music...: those categories are left out.
+        self.assertEqual(len(urls), 6)
+        self.assertFalse(any("Documentary" in url for url in urls))
+        self.assertIn("plugin://plugin.video.floppy/?action=genre&media_type=both&genres=Comedy", urls)
+        self.assertIn("plugin://plugin.video.floppy/?action=genre&media_type=both&genres=Animation&language=ja",
+                      urls)
+        movie_urls = [url for url, _, _ in self.run_genre("media_type=movie", action="genres")]
+        self.assertFalse(any("Reality" in url for url in movie_urls))
+        self.assertTrue(any("keywords=6075" in url for url in movie_urls))
 
     def test_no_key_is_empty(self):
         with mock.patch.object(tmdb, "_key", lambda: ""):
