@@ -63,8 +63,10 @@ def list_seasons(router):
         return
     extra = tmdb.details("tv", tmdb_id)
     title = detail.get("title") or extra.get("title") or router.params.get("show", "")
-    poster = model._img(detail.get("image")) or extra.get("poster", "")
-    fanart = extra.get("fanart") or model._img(detail.get("backdrop")) or poster
+    poster = tmdb.art_url(model._img(detail.get("image")) or extra.get("poster", ""), "poster")
+    fanart = tmdb.art_url(extra.get("fanart") or model._img(detail.get("backdrop")) or "", "backdrop") or poster
+    landscape = tmdb.art_url(extra.get("landscape") or "", "backdrop") or fanart
+    clearlogo = tmdb.art_url(extra.get("clearlogo", ""), "clearlogo")
 
     # Floppy serialises each season like a tracked-media row: details under "item",
     # episodes watched in "progress", episodes still to watch in "*episodes_left".
@@ -109,13 +111,13 @@ def list_seasons(router):
         li.setProperty("UnWatchedEpisodes", str(max(total - seen, 0)))
         li.setProperty("tvshow.tmdb_id", str(tmdb_id))
         art = {
-            "poster": model._img(item.get("image")) or poster,
+            "poster": tmdb.art_url(model._img(item.get("image")), "poster") or poster,
             "fanart": fanart,
-            "landscape": extra.get("landscape") or fanart,
-            "clearlogo": extra.get("clearlogo", ""),
+            "landscape": landscape,
+            "clearlogo": clearlogo,
             "tvshow.poster": poster,
             "tvshow.fanart": fanart,
-            "tvshow.clearlogo": extra.get("clearlogo", ""),
+            "tvshow.clearlogo": clearlogo,
         }
         li.setArt({k: v for k, v in art.items() if v})
         li.addContextMenuItems([
