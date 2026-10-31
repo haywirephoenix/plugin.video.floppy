@@ -41,6 +41,7 @@ class Playing:
         self.season = season
         self.episode = episode
         self.title = title
+        self.decided = False  # resume chosen before the play: no question when it starts
         self.resume = resume  # seconds; None = look it up in Floppy when the video starts
         self.position = 0.0
         self.total = 0.0
@@ -111,11 +112,16 @@ class FloppyPlayer(xbmc.Player):
                 season, episode = int(values["season"]), int(values["episode"])
             except (KeyError, ValueError):
                 return None
+        # resume: chosen before the play (skin.ultra's Resume / Play from beginning): "auto" for
+        # the saved position, or seconds ("0" from the beginning); not asked again
+        decided = "resume" in values
         try:
-            resume = int(float(values["resume"])) if "resume" in values else None
+            resume = None if values.get("resume", "auto") == "auto" else int(float(values["resume"]))
         except ValueError:
             resume = None
-        return Playing(kind, ids, season, episode, values.get("title") or "", resume)
+        playing = Playing(kind, ids, season, episode, values.get("title") or "", resume)
+        playing.decided = decided
+        return playing
 
     @staticmethod
     def _from_tmdbhelper(kind, season=None, episode=None, tag_ids=None):
@@ -244,7 +250,7 @@ class FloppyPlayer(xbmc.Player):
 
     def _maybe_resume(self, playing):
         mode = common.setting_int("resume_mode", 1)
-        if mode == 0:
+        if mode == 0 and not playing.decided:
             return
         if playing.resume is None:
             playing.resume = self._find_resume(playing)
@@ -260,7 +266,7 @@ class FloppyPlayer(xbmc.Player):
             return
         if total and playing.resume >= total * 0.95:
             return
-        if mode == 1:
+        if mode == 1 and not playing.decided:
             self.pause()
             choice = xbmcgui.Dialog().contextmenu(
                 ["Resume from {}".format(_fmt(playing.resume)), "Play from the start"])
