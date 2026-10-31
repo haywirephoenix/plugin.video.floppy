@@ -5,7 +5,7 @@ Each category's fetch(api, page, size) returns (entries, has_more).
 
 from datetime import date, datetime, timedelta, timezone
 
-from . import common, model
+from . import common, model, tmdb
 from .api import FloppyError
 
 MOVIE, TV, MIXED = "movies", "tvshows", "videos"
@@ -86,6 +86,22 @@ def resume(media_types):
             entries.append(entry)
         return model.dedupe(entries), _has_more(payload)
     return fetch
+
+
+def hide_unreleased():
+    return common.setting_bool("hide_unreleased", True)
+
+
+def released_only(entries, deadline=1.0):
+    """Entries without the movies that can't be watched at home yet (tmdb.released_at_home),
+    when the hide_unreleased setting is on. Their details are loaded first (up to ``deadline``
+    seconds, as widgets wait); a movie whose details didn't come in time is kept."""
+    movies = [e for e in entries if e["kind"] == "movie" and e.get("tmdb")]
+    if not hide_unreleased() or not movies:
+        return entries
+    tmdb.prefetch((("movie", e["tmdb"]) for e in movies), deadline=deadline)
+    today = date.today().isoformat()
+    return [e for e in entries if e["kind"] != "movie" or tmdb.released_at_home(e.get("tmdb"), today) is not False]
 
 
 def discover_row(media_type, row_key):
