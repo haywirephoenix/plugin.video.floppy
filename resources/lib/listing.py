@@ -324,7 +324,7 @@ def build(entry, in_resume_list=False):
             source=entry.get("source") or "tmdb", media_id=entry.get("media_id") or entry["tmdb"]))
 
     li.setProperty("IsPlayable", "false")
-    li.addContextMenuItems(context_menu(entry, in_resume_list))
+    li.addContextMenuItems(common.context_submenu(context_menu(entry, in_resume_list)))
     return path, li, is_folder
 
 
