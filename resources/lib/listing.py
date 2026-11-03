@@ -270,6 +270,15 @@ def build(entry, in_resume_list=False):
         li.setProperty("tmdb_type", "movie" if kind == "movie" else "tv")
     if entry.get("episodes_left") is not None:
         li.setProperty("floppy.episodes_left", str(entry["episodes_left"]))
+        if kind == "tvshow":
+            percent = model.watched_percent(entry.get("episodes_watched"), entry["episodes_left"])
+            if percent is not None:
+                li.setProperty("watchedepisodepercent", str(percent))  # ListItem.PercentPlayed
+            # The card's banner: the next episode to watch out recently, or one still to come
+            nxt = entry.get("next_air") or ""
+            banner = model.show_banner(entry["episodes_left"], nxt, nxt)
+            if banner:
+                li.setProperty(banner, "true")  # comingsoon / newepisodes: a skin's card banner
     if entry.get("air_datetime"):
         li.setProperty("floppy.air_datetime", entry["air_datetime"])
 

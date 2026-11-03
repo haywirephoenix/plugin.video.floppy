@@ -109,6 +109,9 @@ def list_seasons(router):
         li.setProperty("TotalEpisodes", str(total))
         li.setProperty("WatchedEpisodes", str(seen))
         li.setProperty("UnWatchedEpisodes", str(max(total - seen, 0)))
+        percent = model.watched_percent(seen, total - seen)
+        if percent is not None:
+            li.setProperty("watchedepisodepercent", str(percent))  # ListItem.PercentPlayed
         li.setProperty("tvshow.tmdb_id", str(tmdb_id))
         art = {
             "poster": tmdb.art_url(model._img(item.get("image")), "poster") or poster,
