@@ -89,15 +89,19 @@ def _image(path, size):
 
 # Image sizes offered per art type (settings image_<type> pick by index), smallest first.
 # Kodi downloads, decodes and caches every image at the size asked for, so smaller is faster
-# on a slow TV; fanart and landscape share one size so a backdrop used for both is fetched once.
+# on a slow TV. "backdrop" is fanart, drawn across the screen; "landscape" is the same kind of
+# image on a card (a landscape row, an episode with no still of its own). Kodi caches any 16:9
+# image at its fanart resolution however small its card, so a card's needs asking for smaller.
 IMAGE_SIZES = {
     "poster": ("w185", "w342", "w500", "w780", "original"),
     "backdrop": ("w780", "w1280", "original"),
+    "landscape": ("w300", "w780", "w1280", "original"),
     "clearlogo": ("w300", "w500", "original"),
     "still": ("w300", "w780", "original"),
 }
 # Suits a 1080p screen: posters fill a row card, backdrops the whole screen.
-DEFAULT_IMAGE_SIZE = {"poster": "w342", "backdrop": "w1280", "clearlogo": "w500", "still": "w780"}
+DEFAULT_IMAGE_SIZE = {"poster": "w342", "backdrop": "w1280", "landscape": "w780", "clearlogo": "w500",
+                      "still": "w780"}
 _IMG_SIZE = re.compile(r"^(https?://image\.tmdb\.org/t/p/)[^/]+/")
 # Some TMDb logos are SVGs, which Kodi can't decode; TMDb renders any image as PNG on request.
 _SVG = re.compile(r"\.svg$", re.IGNORECASE)

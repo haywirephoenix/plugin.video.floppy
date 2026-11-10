@@ -65,7 +65,8 @@ def list_seasons(router):
     title = detail.get("title") or extra.get("title") or router.params.get("show", "")
     poster = tmdb.art_url(model._img(detail.get("image")) or extra.get("poster", ""), "poster")
     fanart = tmdb.art_url(extra.get("fanart") or model._img(detail.get("backdrop")) or "", "backdrop") or poster
-    landscape = tmdb.art_url(extra.get("landscape") or "", "backdrop") or fanart
+    landscape = tmdb.art_url(extra.get("landscape") or extra.get("fanart") or model._img(detail.get("backdrop")) or "",
+                             "landscape") or fanart
     clearlogo = tmdb.art_url(extra.get("clearlogo", ""), "clearlogo")
 
     # Floppy serialises each season like a tracked-media row: details under "item",

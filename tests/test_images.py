@@ -46,13 +46,13 @@ class ImageSizeTest(unittest.TestCase):
             return {kind: tmdb.image_size(kind) for kind in tmdb.IMAGE_SIZES}
 
     def test_defaults(self):
-        self.assertEqual(self.sizes({}), {"poster": "w342", "backdrop": "w1280",
+        self.assertEqual(self.sizes({}), {"poster": "w342", "backdrop": "w1280", "landscape": "w780",
                                           "clearlogo": "w500", "still": "w780"})
 
     def test_picked_and_out_of_range(self):
-        found = self.sizes({"image_poster": 0, "image_backdrop": 2, "image_clearlogo": 9,
-                            "image_still": -1})
-        self.assertEqual(found, {"poster": "w185", "backdrop": "original",
+        found = self.sizes({"image_poster": 0, "image_backdrop": 2, "image_landscape": 0,
+                            "image_clearlogo": 9, "image_still": -1})
+        self.assertEqual(found, {"poster": "w185", "backdrop": "original", "landscape": "w300",
                                  "clearlogo": "w500", "still": "w780"})
 
     def test_defaults_are_offered(self):
@@ -137,12 +137,15 @@ class ArtTest(unittest.TestCase):
         art = self.build(entry, extra, {})
         self.assertEqual(art["poster"], IMG + "w342/p.jpg")
         self.assertEqual(art["tvshow.fanart"], IMG + "w1280/f.jpg")
-        self.assertEqual(art["landscape"], IMG + "w1280/f.jpg")
+        # A card's landscape: the fanart (no landscape of its own) at the smaller card size.
+        self.assertEqual(art["landscape"], IMG + "w780/f.jpg")
         self.assertEqual(art["clearlogo"], IMG + "w500/l.png")
         self.assertEqual(art["thumb"], IMG + "w780/s.jpg")
-        art = self.build(entry, extra, {"image_poster": "3", "image_backdrop": "0", "image_still": "0"})
+        art = self.build(entry, extra, {"image_poster": "3", "image_backdrop": "0", "image_landscape": "0",
+                                        "image_still": "0"})
         self.assertEqual(art["poster"], IMG + "w780/p.jpg")
         self.assertEqual(art["fanart"], IMG + "w780/f.jpg")
+        self.assertEqual(art["landscape"], IMG + "w300/f.jpg")
         self.assertEqual(art["thumb"], IMG + "w300/s.jpg")
 
 

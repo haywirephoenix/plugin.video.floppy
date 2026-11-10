@@ -286,7 +286,8 @@ def build(entry, in_resume_list=False):
     # Each URL at the size picked in settings (stored ones may carry another size).
     poster = tmdb.art_url(entry.get("poster") or extra.get("poster") or "", "poster")
     fanart = tmdb.art_url(extra.get("fanart") or "", "backdrop")
-    landscape = tmdb.art_url(extra.get("landscape") or "", "backdrop") or fanart
+    # A card's: at the landscape size, from the fanart when there's no landscape of its own.
+    landscape = tmdb.art_url(extra.get("landscape") or extra.get("fanart") or "", "landscape")
     clearlogo = tmdb.art_url(extra.get("clearlogo") or "", "clearlogo")
     art = {
         "poster": poster,

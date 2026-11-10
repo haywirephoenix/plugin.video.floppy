@@ -272,7 +272,7 @@ msgid "Poster size"
 msgstr ""
 
 msgctxt "#30602"
-msgid "Fanart and landscape size"
+msgid "Fanart size"
 msgstr ""
 
 msgctxt "#30603"
@@ -283,12 +283,16 @@ msgctxt "#30604"
 msgid "Episode thumbnail size"
 msgstr ""
 
+msgctxt "#30605"
+msgid "Landscape card size"
+msgstr ""
+
 msgctxt "#30610"
 msgid "Width of posters fetched from TMDb. Kodi downloads, shrinks and caches every image the first time it shows it, so smaller images make widget rows appear sooner, above all on slow TVs. 342 pixels suits rows on a 1080p screen."
 msgstr ""
 
 msgctxt "#30611"
-msgid "Width of backgrounds (fanart and landscape) fetched from TMDb. 1280 pixels suits a 1080p screen; Kodi caches backgrounds at no more than 1080 lines anyway."
+msgid "Width of fanart (the background drawn across the screen) fetched from TMDb. 1280 pixels suits a 1080p screen; Kodi caches backgrounds at no more than 1080 lines anyway. Landscape art on cards has its own size."
 msgstr ""
 
 msgctxt "#30612"
@@ -297,6 +301,10 @@ msgstr ""
 
 msgctxt "#30613"
 msgid "Width of episode stills fetched from TMDb."
+msgstr ""
+
+msgctxt "#30614"
+msgid "Width of landscape art on cards (landscape rows, and an episode's card when it has no still of its own), fetched from TMDb apart from the fanart. Kodi caches every 16:9 image at its fanart resolution however small the card, so a smaller size here makes landscape rows load much faster on slow TVs. 780 pixels suits a card on a 1080p screen."
 msgstr ""
 
 msgctxt "#30620"

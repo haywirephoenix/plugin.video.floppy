@@ -347,6 +347,19 @@
                     </constraints>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting id="image_landscape" type="integer" label="30605" help="30614">
+                    <level>0</level>
+                    <default>1</default>
+                    <constraints>
+                        <options>
+                            <option label="30625">0</option>
+                            <option label="30623">1</option>
+                            <option label="30624">2</option>
+                            <option label="30629">3</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
                 <setting id="image_clearlogo" type="integer" label="30603" help="30612">
                     <level>0</level>
                     <default>1</default>
