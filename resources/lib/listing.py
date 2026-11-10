@@ -197,6 +197,9 @@ def build(entry, in_resume_list=False):
     plot = entry.get("plot") or (extra.get("plot") if kind != "episode" else "")
     if plot:
         tag.setPlot(plot)
+        short = tmdb.short_plot(plot)
+        if short:
+            li.setProperty("shortplot", short)  # a skin's Home rows (Ultra's spotlight); details keep the plot
     if entry.get("tagline"):
         tag.setTagLine(entry["tagline"])
     premiered = entry.get("premiered") or (extra.get("premiered") if kind != "episode" else "")

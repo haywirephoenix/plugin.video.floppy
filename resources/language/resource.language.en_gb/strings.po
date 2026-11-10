@@ -231,6 +231,30 @@ msgctxt "#30410"
 msgid "TMDb genre lists leave out movies that can't be watched at home yet: no digital, disc or TV release so far, and in cinemas less than 120 days. Search and Floppy's own lists still show them."
 msgstr ""
 
+msgctxt "#30420"
+msgid "Plot length on Home rows"
+msgstr ""
+
+msgctxt "#30421"
+msgid "Full plot"
+msgstr ""
+
+msgctxt "#30422"
+msgid "One sentence"
+msgstr ""
+
+msgctxt "#30423"
+msgid "Two sentences"
+msgstr ""
+
+msgctxt "#30424"
+msgid "Three sentences"
+msgstr ""
+
+msgctxt "#30425"
+msgid "How much of a plot a skin's Home rows show (Ultra's spotlight), in whole sentences and no more than about 300 characters. The details page always shows the full plot. Full plot: Home shows it all too."
+msgstr ""
+
 msgctxt "#30500"
 msgid "Advanced"
 msgstr ""

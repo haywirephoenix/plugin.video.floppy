@@ -154,6 +154,55 @@ def _details_key(kind, tmdb_id, language):
     return "tmdb:{}:{}:{}:r".format("movie" if kind == "movie" else "tv", tmdb_id, language)
 
 
+def _trim_overview(text, max_chars=297, max_sentences=3):
+    """
+    Trims a TMDb overview to a maximum specified number of sentences while 
+    respecting a character limit and protecting common abbreviations.
+    """
+    if not text:
+        return ""
+    
+    abbreviations = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Sr", "Jr", "Lt", "Sgt", "Col", "Gen", "Capt", "vs", "etc"]
+    masked_text = text
+    for abbr in abbreviations:
+        masked_text = re.sub(r'\b' + abbr + r'\.', abbr + '<<DOT>>', masked_text)
+
+    raw_sentences = re.split(r'(?<=[.!?]) +', masked_text.strip())    
+    sentences = [s.replace('<<DOT>>', '.') for s in raw_sentences if s.strip()]
+    
+    if not sentences:
+        return text
+
+    target_sentences = []
+    for s in sentences[:max_sentences]:
+        test_str = " ".join(target_sentences + [s])
+        
+        if not target_sentences:
+            target_sentences.append(s)
+        elif len(test_str) <= max_chars:
+            target_sentences.append(s)
+        else:
+            break
+
+    return " ".join(target_sentences)
+
+# A Home row's plot (setting plot_short): up to this many sentences, 0 for the full plot, and no
+# longer than SHORT_PLOT_CHARS unless its first sentence is.
+SHORT_PLOT_DEFAULT = 3
+SHORT_PLOT_CHARS = 297
+
+
+def short_plot(text):
+    """The shorter plot a Home row's card shows (the ListItem property shortplot), or "" when the
+    setting asks for full plots or the plot is short already. Worked out as a card is listed, never
+    stored, so the details page keeps the full plot and changing the setting shows at once."""
+    sentences = common.setting_int("plot_short", SHORT_PLOT_DEFAULT)
+    if sentences <= 0 or not text:
+        return ""
+    short = _trim_overview(text, SHORT_PLOT_CHARS, sentences)
+    return short if short != text else ""
+
+
 def home_release(release_dates, primary_date=""):
     """The date (YYYY-MM-DD) a movie can be watched at home: its earliest digital, physical or TV
     release in any country, or HOME_AFTER_CINEMA days after its first cinema release (or, with no

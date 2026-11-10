@@ -317,6 +317,19 @@
                         <popup>false</popup>
                     </control>
                 </setting>
+                <setting id="plot_short" type="integer" label="30420" help="30425">
+                    <level>0</level>
+                    <default>3</default>
+                    <constraints>
+                        <options>
+                            <option label="30421">0</option>
+                            <option label="30422">1</option>
+                            <option label="30423">2</option>
+                            <option label="30424">3</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
             </group>
         </category>
         <category id="images" label="30600">
