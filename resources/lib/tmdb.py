@@ -491,13 +491,29 @@ def discover(tmdb_type, genres=(), language="", keywords="", limit=20):
     while len(results) < limit:
         query = dict(params, page=page)
         data = _cached("{}:{}".format(base, page), DISCOVER_TTL,
-                       lambda: _get("discover/{}".format(tmdb_type), query))
+                       lambda: _slim_page(_get("discover/{}".format(tmdb_type), query)))
         rows = (data or {}).get("results") or []
         results.extend(r for r in rows if not r.get("adult"))
         if not rows or page >= min((data or {}).get("total_pages") or 1, 500):
             break
         page += 1
     return results[:limit]
+
+
+# The fields of a list or discover result that to_entry (and the adult filter) read. Those pages
+# are cached as fetched otherwise: every result's every field, read back and parsed each time a
+# row loads. A page cached before this, in full, still reads the same.
+RESULT_FIELDS = ("id", "title", "name", "overview", "poster_path", "release_date", "first_air_date",
+                 "vote_average", "adult")
+
+
+def _slim_page(data):
+    """A TMDb list or discover page with only what to_entry reads, for the cache."""
+    if not isinstance(data, dict):
+        return data
+    rows = [{k: r[k] for k in RESULT_FIELDS if k in r}
+            for r in data.get("results") or [] if isinstance(r, dict)]
+    return {"results": rows, "total_pages": data.get("total_pages")}
 
 
 def to_entry(result, media_type):

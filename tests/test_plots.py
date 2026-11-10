@@ -43,5 +43,24 @@ class ShortPlotTest(unittest.TestCase):
         self.assertTrue(short.endswith("."))
 
 
+class SlimPageTest(unittest.TestCase):
+    def test_keeps_what_to_entry_reads(self):
+        full = {"page": 1, "total_pages": 7, "total_results": 140, "results": [
+            {"id": 603, "title": "The Matrix", "original_title": "The Matrix", "overview": PLOT,
+             "poster_path": "/p.jpg", "backdrop_path": "/b.jpg", "release_date": "1999-03-31",
+             "vote_average": 8.2, "vote_count": 25000, "popularity": 90.1, "genre_ids": [28, 878],
+             "adult": False, "video": False, "original_language": "en"}]}
+        slim = tmdb._slim_page(full)
+        self.assertEqual(slim["total_pages"], 7)
+        self.assertEqual(set(slim["results"][0]), {"id", "title", "overview", "poster_path", "release_date",
+                                                   "vote_average", "adult"})
+        # The full plot is kept: Home's shorter one is made as a card is listed.
+        self.assertEqual(slim["results"][0]["overview"], PLOT)
+        self.assertEqual(tmdb.to_entry(slim["results"][0], "movie"), tmdb.to_entry(full["results"][0], "movie"))
+
+    def test_leaves_a_failed_fetch(self):
+        self.assertIsNone(tmdb._slim_page(None))
+
+
 if __name__ == "__main__":
     unittest.main()
